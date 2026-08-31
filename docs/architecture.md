@@ -1,6 +1,6 @@
 # Architecture — `obsidian-academic-cms`
 
-Status: Accepted (Phase 1-2 done, Phase 3 regrouped) — 2026-08-31  
+Status: Accepted (Phase 1, 2, 3a, 3b done) — 2026-08-31  
 Owner: academic-cms module  
 Scope: `obsidian-academic-cms` (`github.com/estebanmatias92/obsidian-academic-cms` `public`) at `.obsidian/plugins/obsidian-academic-cms` ← `00-meta/academic-cms/` Strangler
 
@@ -48,8 +48,13 @@ obsidian-academic-cms/           # own repo github.com/estebanmatias92/obsidian-
       modal_port.ts       # openAssignmentForm → obsidian.Modal
       settings_port.ts    # getCodePath(): string|undefined from data.json GUI, fallback vault folder structure
       clock_port.ts       # now()
+    use_cases/       # services over ports (Phase 3b done)
+      assignment_number_service.ts  # scanLastOfType/scanLastOverall → VaultPort, alias-aware (incl. multi-segment slugs); 12 fake-vault tests
+      create_assignment_service.ts  # scaffold dirs + frontmatter via VaultPort/SettingsPort (write path pending in main.ts)
+    adapters/obsidian/  # VaultPort/ModalPort/SettingsPort/ClockPort → Obsidian API
+      vault_adapter.ts, modal_adapter.ts (Setting-based form + prefill), settings_adapter.ts, clock_adapter.ts
     plugin/
-      main.ts        # onload: addCommand Create Assignment + vault.on('create') hook (replaces templater-obsidian/data.json:16 folder_templates), onunload
+      main.ts        # onload: addCommand Create Assignment + vault.on('create') hook; context detect (course/_course.md, career/_career.md) + prefill via AssignmentNumberService
       settings.ts    # SettingsTab for optional code path (user-provided, never ~/Projects hardcode)
   tests/assignment_domain.test.js  # vitest 27, guard vs user_scripts_folder scan
   package.json, vitest.config.js, .gitignore (node_modules/, dist/, coverage/)

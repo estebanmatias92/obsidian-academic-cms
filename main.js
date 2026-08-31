@@ -7,9 +7,6 @@ var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -24,51 +21,353 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/plugin/settings.ts
-var settings_exports = {};
-__export(settings_exports, {
-  AcademicCMSSettingTab: () => AcademicCMSSettingTab,
-  DEFAULT_SETTINGS: () => DEFAULT_SETTINGS
-});
-var import_obsidian, DEFAULT_SETTINGS, AcademicCMSSettingTab;
-var init_settings = __esm({
-  "src/plugin/settings.ts"() {
-    import_obsidian = require("obsidian");
-    DEFAULT_SETTINGS = {
-      codeFolderPath: ""
-    };
-    AcademicCMSSettingTab = class extends import_obsidian.PluginSettingTab {
-      constructor(app, plugin) {
-        super(app, plugin);
-        this.plugin = plugin;
-      }
-      display() {
-        const { containerEl } = this;
-        containerEl.empty();
-        containerEl.createEl("h2", { text: "Academic CMS Settings" });
-        new import_obsidian.Setting(containerEl).setName("Code folder path").setDesc("Vault-relative path for code/ when assignment type includes code (e.g. practico). Leave empty for default vault folder structure: course/assignDir/folder/code. Agnostic, no hardcode ~/Projects.").addText(
-          (text) => text.setPlaceholder("e.g. 30-assignments or leave empty").setValue(this.plugin.settings.codeFolderPath).onChange(async (value) => {
-            this.plugin.settings.codeFolderPath = value;
-            await this.plugin.saveSettings();
-          })
-        );
-      }
-    };
-  }
-});
-
 // src/plugin/main.ts
 var main_exports = {};
 __export(main_exports, {
   default: () => AcademicCMSPlugin
 });
 module.exports = __toCommonJS(main_exports);
+var import_obsidian4 = require("obsidian");
+
+// src/plugin/settings.ts
+var import_obsidian = require("obsidian");
+var DEFAULT_SETTINGS = {
+  codeFolderPath: ""
+};
+var AcademicCMSSettingTab = class extends import_obsidian.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl("h2", { text: "Academic CMS Settings" });
+    new import_obsidian.Setting(containerEl).setName("Code folder path").setDesc("Vault-relative path for code/ when assignment type includes code (e.g. practico). Leave empty for default vault folder structure: course/assignDir/folder/code. Agnostic, no hardcode ~/Projects.").addText(
+      (text) => text.setPlaceholder("e.g. 30-assignments or leave empty").setValue(this.plugin.settings.codeFolderPath).onChange(async (value) => {
+        this.plugin.settings.codeFolderPath = value;
+        await this.plugin.saveSettings();
+      })
+    );
+  }
+};
+
+// src/adapters/obsidian/modal_adapter.ts
 var import_obsidian2 = require("obsidian");
-init_settings();
-var AcademicCMSPlugin = class extends import_obsidian2.Plugin {
+
+// src/domain/assignment_types.ts
+var canonicalTypes = {
+  practico: "Trabajo Pr\xE1ctico",
+  laboratorio: "Laboratorio",
+  kata: "Kata",
+  cuestionario: "Cuestionario",
+  trivia: "Trivia",
+  investigacion: "Investigaci\xF3n",
+  caso: "Caso",
+  ejercicios: "Ejercicios",
+  parcial: "Examen Parcial",
+  final: "Examen Final"
+};
+var typeDisplayNames = {
+  ...canonicalTypes,
+  practica: canonicalTypes.practico,
+  "trabajo-practico": canonicalTypes.practico
+};
+var typeOptions = { ...canonicalTypes };
+var codeTypes = ["practico", "laboratorio", "kata"];
+var typeAliases = {
+  practico: ["practico", "practica", "trabajo-practico"]
+};
+
+// src/adapters/obsidian/modal_adapter.ts
+var EXTENSION_MAP = {
+  "word-document": ".docx",
+  PDF: ".pdf",
+  "source-code": ".cpp",
+  presentation: ".pptx",
+  video: ".mp4",
+  handwritten: ""
+};
+var AssignmentFormModal = class extends import_obsidian2.Modal {
+  constructor(app, prefill = {}) {
+    super(app);
+    this.done = false;
+    this.data = {
+      type: "practico",
+      topic: "Introduccion",
+      unit: "01",
+      date: "",
+      due_date: "",
+      difficulty: "medium",
+      priority: "medium",
+      submission_type: "PDF",
+      submission_platform: "Google_Classroom",
+      submission_link: "",
+      instructions_link: "",
+      ai_chat_links: ""
+    };
+    if (prefill.unit)
+      this.data.unit = prefill.unit;
+    if (prefill.assignment_number)
+      this.data.assignment_number = prefill.assignment_number;
+    if (prefill.date)
+      this.data.date = prefill.date;
+    if (prefill.due_date)
+      this.data.due_date = prefill.due_date;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Nueva Actividad" });
+    new import_obsidian2.Setting(contentEl).setName("Tipo").addDropdown((d) => {
+      for (const [value, label] of Object.entries(typeOptions)) {
+        d.addOption(value, label);
+      }
+      d.setValue(this.data.type);
+      d.onChange((v) => this.data.type = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Tema").addText((t) => {
+      t.setValue(this.data.topic);
+      t.onChange((v) => this.data.topic = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Unidad").addText((t) => {
+      t.setValue(this.data.unit);
+      t.onChange((v) => this.data.unit = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Fecha de asignaci\xF3n").addText((t) => {
+      t.setValue(this.data.date);
+      t.onChange((v) => this.data.date = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Fecha de entrega").addText((t) => {
+      t.setValue(this.data.due_date);
+      t.onChange((v) => this.data.due_date = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Dificultad").addDropdown((d) => {
+      d.addOption("very-easy", "Muy Facil").addOption("easy", "Facil").addOption("medium", "Media").addOption("hard", "Dificil").addOption("very-hard", "Muy Dificil");
+      d.setValue(this.data.difficulty);
+      d.onChange((v) => this.data.difficulty = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Prioridad").addDropdown((d) => {
+      d.addOption("low", "Baja").addOption("medium", "Media").addOption("high", "Alta").addOption("urgent", "Urgente");
+      d.setValue(this.data.priority);
+      d.onChange((v) => this.data.priority = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Formato").addDropdown((d) => {
+      d.addOption("word-document", "Documento Word").addOption("PDF", "PDF").addOption("source-code", "Codigo Fuente").addOption("presentation", "Presentacion").addOption("video", "Video").addOption("handwritten", "Manuscrito");
+      d.setValue(this.data.submission_type);
+      d.onChange((v) => this.data.submission_type = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Plataforma").addDropdown((d) => {
+      d.addOption("Google_Classroom", "Google Classroom").addOption("Moodle", "Moodle").addOption("Email", "Email").addOption("GitHub", "GitHub").addOption("in_person", "Entrega Fisica").addOption("no-submit", "Sin Entrega");
+      d.setValue(this.data.submission_platform);
+      d.onChange((v) => this.data.submission_platform = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Enlace de entrega").addText((t) => {
+      t.setValue(this.data.submission_link);
+      t.onChange((v) => this.data.submission_link = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Instrucciones").addText((t) => {
+      t.setValue(this.data.instructions_link);
+      t.onChange((v) => this.data.instructions_link = v);
+    });
+    new import_obsidian2.Setting(contentEl).setName("Chats IA").addTextArea((t) => {
+      t.setPlaceholder("https://chat.deepseek.com/...\nhttps://notebooklm.google.com/...");
+      t.setValue(this.data.ai_chat_links);
+      t.onChange((v) => this.data.ai_chat_links = v);
+    });
+    new import_obsidian2.Setting(contentEl).addButton(
+      (btn) => btn.setButtonText("Cancelar").onClick(() => this.finish(null))
+    ).addButton(
+      (btn) => btn.setButtonText("Crear Actividad").setCta().onClick(() => {
+        const canonical = typeAliases[this.data.type] ? this.data.type : Object.keys(typeAliases).find((k) => typeAliases[k].includes(this.data.type)) || this.data.type;
+        this.data.include_code = codeTypes.includes(canonical);
+        this.data.submission_file_format = EXTENSION_MAP[this.data.submission_type] || "";
+        this.finish({ ...this.data });
+      })
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+    if (!this.done)
+      this.finish(null);
+  }
+  finish(data) {
+    if (this.done)
+      return;
+    this.done = true;
+    this.close();
+    this.resolvePromise(data);
+  }
+  open() {
+    super.open();
+    return new Promise((resolve) => this.resolvePromise = resolve);
+  }
+};
+var ObsidianModalPort = class {
+  constructor(app) {
+    this.app = app;
+  }
+  async openAssignmentForm(_context, prefill = {}) {
+    return new AssignmentFormModal(this.app, prefill).open();
+  }
+};
+
+// src/adapters/obsidian/vault_adapter.ts
+var import_obsidian3 = require("obsidian");
+function toVaultFile(file) {
+  return {
+    path: file.path,
+    name: file.name,
+    basename: file.basename,
+    extension: file.extension,
+    parent: file.parent ? toVaultParent(file.parent) : null
+  };
+}
+function toVaultParent(file) {
+  return file instanceof import_obsidian3.TFolder ? toVaultFolder(file) : null;
+}
+function toVaultFolder(folder) {
+  return {
+    path: folder.path,
+    name: folder.name,
+    parent: folder.parent ? toVaultParent(folder.parent) : null,
+    children: folder.children.map(
+      (child) => child instanceof import_obsidian3.TFile ? toVaultFile(child) : toVaultFolder(child)
+    )
+  };
+}
+var ObsidianVaultAdapter = class {
+  constructor(app) {
+    this.app = app;
+  }
+  getAbstractFileByPath(path) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file)
+      return null;
+    if (file instanceof import_obsidian3.TFile)
+      return toVaultFile(file);
+    if (file instanceof import_obsidian3.TFolder)
+      return toVaultFolder(file);
+    return null;
+  }
+  async readFile(file) {
+    const tFile = this.app.vault.getAbstractFileByPath(file.path);
+    if (!(tFile instanceof import_obsidian3.TFile))
+      throw new Error(`File not found: ${file.path}`);
+    return this.app.vault.read(tFile);
+  }
+  async createFolder(path) {
+    await this.app.vault.createFolder(path);
+  }
+  async moveFile(file, newPath) {
+    const tFile = this.app.vault.getAbstractFileByPath(file.path);
+    if (!(tFile instanceof import_obsidian3.TFile))
+      throw new Error(`File not found: ${file.path}`);
+    await this.app.vault.rename(tFile, newPath);
+  }
+  getMatchedPath(pattern) {
+    var _a, _b;
+    return (_b = (_a = this.app.vault.getAbstractFileByPath(pattern)) == null ? void 0 : _a.path) != null ? _b : null;
+  }
+  getActiveFilePath() {
+    var _a, _b;
+    return (_b = (_a = this.app.workspace.getActiveFile()) == null ? void 0 : _a.path) != null ? _b : null;
+  }
+};
+
+// src/use_cases/assignment_number_service.ts
+var AssignmentNumberService = class {
+  constructor(vaultPort) {
+    this.vaultPort = vaultPort;
+  }
+  async scanLastOfType(type, context) {
+    var _a;
+    const dirPath = `${context.coursePath}/${context.assignDir}`;
+    const folder = this.vaultPort.getAbstractFileByPath(dirPath);
+    if (!folder || !folder.children)
+      return null;
+    const aliases = typeAliases[type] || [type];
+    const candidates = folder.children.filter((child) => "children" in child && child.children !== void 0).filter((child) => {
+      const m = child.name.match(/^\d{4}-\d{2}-\d{2}-(.+)$/);
+      if (!m)
+        return false;
+      return aliases.some((a) => m[1] === a || m[1].startsWith(`${a}-`));
+    }).sort((a, b) => b.name.localeCompare(a.name));
+    if (candidates.length === 0)
+      return null;
+    for (const candidate of candidates) {
+      const note = (_a = candidate.children) == null ? void 0 : _a.find(
+        (c) => "extension" in c && c.extension === "md" && !c.name.startsWith("_")
+      );
+      if (!note)
+        continue;
+      const content = await this.vaultPort.readFile(note);
+      const fm = this.parseFrontmatter(content);
+      if (fm)
+        return fm;
+    }
+    return null;
+  }
+  async scanLastOverall(context) {
+    var _a;
+    const dirPath = `${context.coursePath}/${context.assignDir}`;
+    const folder = this.vaultPort.getAbstractFileByPath(dirPath);
+    if (!folder || !folder.children)
+      return null;
+    const candidates = folder.children.filter((child) => "children" in child && child.children !== void 0).filter((child) => /^\d{4}-\d{2}-\d{2}-/.test(child.name)).sort((a, b) => b.name.localeCompare(a.name));
+    if (candidates.length === 0)
+      return null;
+    for (const candidate of candidates) {
+      const note = (_a = candidate.children) == null ? void 0 : _a.find(
+        (c) => "extension" in c && c.extension === "md" && !c.name.startsWith("_")
+      );
+      if (!note)
+        continue;
+      const content = await this.vaultPort.readFile(note);
+      const fm = this.parseFrontmatter(content);
+      if (fm)
+        return fm;
+    }
+    return null;
+  }
+  async getNextAssignmentNumber(type, context) {
+    const lastOfType = await this.scanLastOfType(type, context);
+    if (lastOfType && lastOfType.assignment_number) {
+      return String(parseInt(lastOfType.assignment_number, 10) + 1).padStart(2, "0");
+    }
+    return "01";
+  }
+  async getNextUnit(context) {
+    const lastOverall = await this.scanLastOverall(context);
+    if (lastOverall && lastOverall.unit) {
+      return String(parseInt(lastOverall.unit, 10)).padStart(2, "0");
+    }
+    return "01";
+  }
+  parseFrontmatter(content) {
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!fmMatch)
+      return null;
+    const fm = fmMatch[1];
+    const get = (key) => {
+      const m = fm.match(new RegExp(`^${key}:\\s*"?([^"\\n]+)"?`, "m"));
+      return m ? m[1].trim() : null;
+    };
+    const unit = get("unit");
+    const assignment_number = get("assignment_number");
+    if (!unit && !assignment_number)
+      return null;
+    return {
+      unit: unit != null ? unit : void 0,
+      assignment_number: assignment_number != null ? assignment_number : void 0
+    };
+  }
+};
+
+// src/plugin/main.ts
+var AcademicCMSPlugin = class extends import_obsidian4.Plugin {
   async onload() {
     await this.loadSettings();
-    this.addSettingTab(new (await Promise.resolve().then(() => (init_settings(), settings_exports))).AcademicCMSSettingTab(this.app, this));
+    this.addSettingTab(new AcademicCMSSettingTab(this.app, this));
     this.addCommand({
       id: "create-assignment",
       name: "Create Assignment",
@@ -76,7 +375,7 @@ var AcademicCMSPlugin = class extends import_obsidian2.Plugin {
     });
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (!(file instanceof import_obsidian2.TFile))
+        if (!(file instanceof import_obsidian4.TFile))
           return;
       })
     );
@@ -90,7 +389,77 @@ var AcademicCMSPlugin = class extends import_obsidian2.Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
   }
+  /**
+   * Match active file path against a wildcard pattern (port of shared/get_matched_path.js).
+   * e.g. pattern "*\/*systems*\/subjects\/*\/" matches "foo/isft-systems/subjects/bd-01/..."
+   */
+  matchPathPattern(activePath, pathPattern) {
+    const normalized = pathPattern.replace(/^\/|\/$/g, "");
+    const regexParts = normalized.split("/").filter(Boolean).map((segment) => segment === "*" ? "[^/]+" : segment.replace(/\*/g, "[^/]*"));
+    const pathRegex = new RegExp(`^${regexParts.join("\\/")}(\\/|$)`, "i");
+    if (!pathRegex.test(activePath))
+      return null;
+    const segments = activePath.split("/").filter(Boolean);
+    return segments.slice(0, regexParts.length).join("/") || null;
+  }
+  /**
+   * Build the assignment context from the active file.
+   * Returns null (with a Notice) when not inside a course folder.
+   */
+  getContext() {
+    var _a, _b, _c, _d;
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!(activeFile == null ? void 0 : activeFile.path)) {
+      new import_obsidian4.Notice("Academic CMS: no active file");
+      return null;
+    }
+    const coursePath = this.matchPathPattern(activeFile.path, "*/*systems*/subjects/*/");
+    if (!coursePath) {
+      new import_obsidian4.Notice("No se detect\xF3 una materia \u2014 run this from inside a course folder");
+      return null;
+    }
+    const assignDir = activeFile.path.includes("/40-exams/") ? "40-exams" : "30-assignments";
+    let course;
+    const courseFile = this.app.vault.getAbstractFileByPath(`${coursePath}/_course.md`);
+    if (courseFile instanceof import_obsidian4.TFile) {
+      const fm = (_a = this.app.metadataCache.getFileCache(courseFile)) == null ? void 0 : _a.frontmatter;
+      if (fm == null ? void 0 : fm.course)
+        course = { name: fm.course, code: (_b = fm.code) != null ? _b : "" };
+    }
+    let career;
+    const careerPath = coursePath.split("/").slice(0, -2).join("/");
+    const careerFile = this.app.vault.getAbstractFileByPath(`${careerPath}/_career.md`);
+    if (careerFile instanceof import_obsidian4.TFile) {
+      const student = (_d = (_c = this.app.metadataCache.getFileCache(careerFile)) == null ? void 0 : _c.frontmatter) == null ? void 0 : _d.student;
+      if (student)
+        career = { student };
+    }
+    return { coursePath, assignDir, course, career };
+  }
   async openAssignmentModal() {
-    new import_obsidian2.Notice("Academic CMS: Create Assignment \u2014 TODO: open ModalPort (Phase 3b)");
+    const context = this.getContext();
+    if (!context)
+      return;
+    const vault = new ObsidianVaultAdapter(this.app);
+    const numberService = new AssignmentNumberService(vault);
+    const today = /* @__PURE__ */ new Date();
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const addDays = (d, days) => new Date(d.getTime() + days * 864e5);
+    const prefill = {
+      unit: await numberService.getNextUnit(context),
+      date: iso(today),
+      due_date: iso(addDays(today, 7))
+    };
+    const modal = new ObsidianModalPort(this.app);
+    const data = await modal.openAssignmentForm(context, prefill);
+    if (!data) {
+      new import_obsidian4.Notice("Creaci\xF3n cancelada");
+      return;
+    }
+    data.assignment_number = await numberService.getNextAssignmentNumber(
+      data.type,
+      context
+    );
+    new import_obsidian4.Notice(`Assignment scaffold: ${data.type} ${data.assignment_number} \u2014 ${data.topic}`);
   }
 };
