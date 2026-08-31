@@ -1,8 +1,8 @@
-# Architecture — `00-meta/academic-cms`
+# Architecture — `obsidian-academic-cms`
 
-Status: Draft — 2026-08-31  
+Status: Accepted (Phase 1-2 done, Phase 3 regrouped) — 2026-08-31  
 Owner: academic-cms module  
-Scope: `00-meta/academic-cms/` (Templater scripts → Obsidian Plugin)
+Scope: `obsidian-academic-cms` (`github.com/estebanmatias92/obsidian-academic-cms` `public`) at `.obsidian/plugins/obsidian-academic-cms` ← `00-meta/academic-cms/` Strangler
 
 ## 1. Purpose
 
@@ -18,14 +18,14 @@ This document is the entry point. Decisions and migration steps live in `adr/`.
 
 | Module | Entry | Role |
 |---|---|---|
-| `assignments/` | `assignment.md` + `assignment_form_modal.js` | Create assignment scaffold (`_assets`, `deliverable`, `code/` symlink), title/filename generation |
+| `assignments/` | `assignment.md` + `assignment_form_modal.js` | Create assignment scaffold (`_assets`, `deliverable`, `code/` vault folder — `fs` symlink `assignment.md:140` hard `~/Projects/.../isft151-analisis-sistemas` dropped for vault-only `Vault` API), title/filename via `assignments/assignment_domain.js` |
 | `topics/` | `topic.md` | Create topic notes |
 | `classes/` | `clase.md`, `lecture.md` | Lecture scaffolding |
 | `career/` | `entrypoint.md`, `_course-metadata.md`, `_career-meta.md` | Career/course bootstrapping |
-| `shared/` | `slugify.js`, `get_frontmatter_from_regex.js`, etc. | Cross-cutting vault helpers |
+| `shared/` | `slugify.js`, `get_frontmatter_from_regex.js`, etc. | Cross-cutting vault helpers — agnostic `Vault` API |
 | `career_config.js` | — | Central path patterns (wildcard `*systems*`) — see `ACOPLAMIENTO_CAREER_CONFIG.md` |
 
-**Key coupling:** Templates mix **pure domain** (name mapping, title/filename rules) with **I/O** (`tp.app.vault.*`, Node `fs` symlink `assignments/assignment.md:142`, direct `document` modal `assignments/assignment_form_modal.js:245`).
+**Key coupling (Phase 3b target):** Templates mix **pure domain** (now `assignments/assignment_types.js`/`assignment_domain.js` isolated, `27 pass` `vitest`) with **I/O** (`tp.app.vault.*` → `VaultPort`, `document` modal `assignments/assignment_form_modal.js:245` → `obsidian.Modal`, hard `fs` symlink dropped for `SettingsPort` user-configured vault-relative path, fallback `Obsidian` folder structure).
 
 ## 3. Problems Driving Evolution
 
@@ -34,27 +34,29 @@ This document is the entry point. Decisions and migration steps live in `adr/`.
 3. **No types/tests:** Pure logic (title `assignments/assignment.md:83` ↔ `assignments/assignment_form_modal.js:530`, filename `assignments/assignment.md:84` ↔ `assignments/assignment_form_modal.js:534`) has no characterization tests.
 4. **Path fragility:** `career_config.js:1` wildcard patterns break on project rename — documented in `ACOPLAMIENTO_CAREER_CONFIG.md`.
 
-## 4. Target Architecture (Plugin)
+## 4. Target Architecture (Plugin `obsidian-academic-cms` at `.obsidian/plugins/obsidian-academic-cms`)
 
 ```
-src/
-  domain/          # pure, zero `tp`/`app` deps — shared by Templater + Plugin
-    assignment_types.ts   # canonical catalog (Type Object / Registry)
-    assignment_domain.ts  # buildTitle(), buildFilename(), getScaffoldDirs()
-    slugify.ts
-  ports/           # interfaces
-    vault_port.ts
-    filesystem_port.ts
-    modal_port.ts
-  adapters/
-    templater/     # implements ports via tp.app.vault / fs / document
-    obsidian/      # implements ports via Obsidian Vault API
-  plugin/
-    main.ts        # onload/onunload, commands
-    settings.ts
+obsidian-academic-cms/           # own repo github.com/estebanmatias92/obsidian-academic-cms public, self-contained installs
+  src/
+    domain/          # pure, zero tp/app deps — already JS, migrate to TS
+      assignment_types.ts   # canonicalTypes 10 practico, aliasMap 2, scaffoldTemplates, codeTypes
+      assignment_domain.ts  # buildTitle(), buildFilename(), getScaffoldDirs(), buildFolderName()
+      slugify.ts     # shared/slugify.js agnostic
+    ports/           # vault-only, no fs hardcode
+      vault_port.ts       # createFolder, getAbstractFileByPath, read, move, getMatchedPath, getFullSystemPath (vault-relative)
+      modal_port.ts       # openAssignmentForm → obsidian.Modal
+      settings_port.ts    # getCodePath(): string|undefined from data.json GUI, fallback vault folder structure
+      clock_port.ts       # now()
+    plugin/
+      main.ts        # onload: addCommand Create Assignment + vault.on('create') hook (replaces templater-obsidian/data.json:16 folder_templates), onunload
+      settings.ts    # SettingsTab for optional code path (user-provided, never ~/Projects hardcode)
+  tests/assignment_domain.test.js  # vitest 27, guard vs user_scripts_folder scan
+  package.json, vitest.config.js, .gitignore (node_modules/, dist/, coverage/)
+  dist/main.js, manifest.json → deployed to conocimiento/.obsidian/plugins/obsidian-academic-cms
 ```
 
-Templater templates become thin callers that delegate to `domain` via adapters. Plugin `Create Assignment` command reuses the same `domain`. See `adr/001-strangler-obsidian-plugin.md` for the migration sequence.
+`00-meta/academic-cms` removed when not functional (your `remove academic-cms from 00-meta when is no longer functional`); `Templater` dependency (`almost just new note hook`) dropped — hook via `Obsidian API` directly. See `adr/001` regrouped Phase 3.
 
 ## 5. Principles
 
@@ -68,11 +70,12 @@ Templater templates become thin callers that delegate to `domain` via adapters. 
 * `assignments/` — pilot for the whole migration; other modules (`topics/`, `classes/`, `career/`) follow the same `data → pure domain → ports` path after validation.
 * `shared/` — stays for truly cross-cutting helpers (`slugify`). Domain-specific catalogs stay in their module (`assignments/assignment_types.*`) to avoid a god `shared/`.
 
-## 7. Open Decisions
+## 7. Closed Decisions (Phase 3 regrouped)
 
-* Location of canonical catalog: `assignments/assignment_types.js` (co-located, preferred) vs `shared/assignment_config.js`.
-* Coexistence: Plugin runs alongside Templater during transition (recommended) vs immediate replacement.
-* Module format: `CommonJS module.exports` (Templater compat) vs dual `ESM` build.
+* Canonical catalog `assignments/assignment_types.js` co-located, `practico` canonical, aliases read-only — done.
+* Repo `obsidian-academic-cms` public at `.obsidian/plugins/obsidian-academic-cms`, self-contained installs (no vault-root `node_modules`), `fs` symlink dropped for vault-only `Vault` API + `SettingsPort` GUI — done 2026-08-31.
+* Templater dropped (`new note` via `Vault.on('create')` + Plugin command) — regrouped Phase 3c.
+* Module format: `CommonJS` shim for `Templater` compat during Strangler → `ESM` `src/` for Plugin (dual build removed `fs` hardcode).
 
 ## 8. References
 

@@ -1,9 +1,9 @@
 # ADR 001 — Incremental Migration to Obsidian Plugin via Strangler Fig
 
-* Status: Proposed
-* Date: 2026-08-31
+* Status: Accepted (Phase 1-2 done, Phase 3 regrouped)
+* Date: 2026-08-31 (updated 2026-08-31 — repo `obsidian-academic-cms`, vault-only paths)
 * Deciders: academic-cms owner
-* Scope: `00-meta/academic-cms/` → Obsidian Plugin
+* Scope: `00-meta/academic-cms/` → `obsidian-academic-cms` Plugin (`github.com/estebanmatias92/obsidian-academic-cms` `public`) at `.obsidian/plugins/obsidian-academic-cms`
 * Relates to: `docs/architecture.md`, `docs/ACOPLAMIENTO_CAREER_CONFIG.md`
 
 ## Context
@@ -14,7 +14,7 @@
 * `assignments/assignment_form_modal.js:11` `typeDisplayNames`
 * `assignments/assignment_form_modal.js:47` `fieldGroups` options (near-duplicate without aliases)
 
-Collateral coupling: `assignments/assignment.md:26` `scaffoldTemplates` vs `assignments/assignment_form_modal.js:25` `codeTypes` / `assignments/assignment_form_modal.js:27` `typeAliases` encode the same domain. Pure rules (title `assignments/assignment.md:83` ↔ `assignments/assignment_form_modal.js:530`, filename `assignments/assignment.md:84` ↔ `assignments/assignment_form_modal.js:534`) are duplicated and untestable; I/O (`tp.app.vault`, Node `fs` symlink `assignments/assignment.md:142`, DOM modal `assignments/assignment_form_modal.js:245`) is interleaved with domain.
+Collateral coupling: `assignments/assignment.md:26` `scaffoldTemplates` vs `assignments/assignment_form_modal.js:25` `codeTypes` / `assignments/assignment_form_modal.js:27` `typeAliases` encode the same domain. Pure rules (title `assignments/assignment.md:83` ↔ `assignments/assignment_form_modal.js:530`, filename `assignments/assignment.md:84` ↔ `assignments/assignment_form_modal.js:534`) are duplicated and untestable; I/O (`tp.app.vault`, DOM modal `assignments/assignment_form_modal.js:245`) is interleaved with domain — hardcode `fs` symlink `assignment.md:140` `~/Projects/.../isft151-analisis-sistemas` + `os.homedir` dropped for vault-only agnostic paths.
 
 Goal is an **Obsidian Plugin** that reuses the same scaffolding logic, migrates one refactor at a time without breaking the vault, and leaves each `main` commit green.
 
@@ -28,47 +28,36 @@ Adopt **Strangler Fig, evolutionary design, YAGNI**:
 
 A pattern is introduced only if it **reduces coupling to `tp/vault/dom`** or **cheapens the next Plugin step**.
 
-## Plan — Phases (each is a mergeable PR)
+## Plan — Phases (each is a mergeable PR) — regrouped 2026-08-31 for `obsidian-academic-cms` isolated repo
 
-### Phase 1 — DRY: Centralize Assignment Types (immediate)
+### Phase 1 — DRY: Centralize Assignment Types (done)
 
-* Create `00-meta/academic-cms/assignments/assignment_types.js` (alt `shared/assignment_config.js` — to be confirmed) exporting:
-  ```js
-  canonicalTypes   // 10 entries: practico ("Trabajo Práctico") is canonical
-  aliasMap         // 2 entries: practica → practico, trabajo-practico → practico (read-only)
-  typeDisplayNames // canonical + aliases for title lookup compat (getDisplayName resolves via aliasMap)
-  typeOptions      // 10 canonical entries for UI select (no aliases)
-  typeAliases      // { practico: ["practico","practica","trabajo-practico"] } scan-only, creation writes practico
-  scaffoldTemplates
-  codeTypes
-  getDisplayName(slug) // alias-aware
-  resolveType(slug)    // alias → canonical
-  ```
-  Note: file exposes as `tp.user.assignment_types` via basename flattening (same as `career_config.js` → `tp.user.career_config`, `shared/slugify.js` → `tp.user.slugify`). Verify `require` inside Templater sandbox before migrating.
-* Refactor `assignments/assignment.md:10-39` → import from module.
-* Refactor `assignments/assignment_form_modal.js:11-28` + `assignments/assignment_form_modal.js:47-58` → `options: typeOptions`, preview at `assignments/assignment_form_modal.js:523` via `getDisplayName`.
-* Validation: create `practico` and `parcial` via modal (writes `practico`, never `practica`/`trabajo-practico`); verify existing legacy folder `05-trabajo-practico-*` still resolves as `practico` in `scanLastOfType` (`assignments/assignment_form_modal.js:184`); check `code/` symlink still gated by `codeTypes`; title/filename unchanged.
+* Created `assignments/assignment_types.js` exporting `canonicalTypes` (10 `practico` canonical), `aliasMap` (2 read-only), `typeDisplayNames`, `typeOptions`, `typeAliases`, `scaffoldTemplates`, `codeTypes`, `getDisplayName`/`resolveType` alias-aware. Exposes `tp.user.assignment_types` + `require` fallback. Refactored `assignment.md:10-39` + `assignment_form_modal.js:11-28`/`47-58` to `typeOptions`/`getDisplayName`.
+* Validation: `practico`/`parcial` writes `practico` only, legacy `05-trabajo-practico-*` scans as `practico`, `code/` gated by `codeTypes`, title/filename unchanged — done.
 
-### Phase 2 — Extract Pure Domain (testability)
+### Phase 2 — Extract Pure Domain (done)
 
-* Extract from duplicated logic: `buildTitle()`, `buildFilename()`, `getScaffoldDirs()` into `assignments/assignment_domain.js` (or co-located in `assignment_types.js` — prefer separate to keep data vs logic SRP).
-* Duplicated sources: `assignments/assignment.md:83-84` and `assignments/assignment_form_modal.js:522-536`, `assignments/assignment.md:77`.
-* Add characterization tests (Vitest) that import domain without `tp`; tests are the safety net for Phase 3+.
-* Validation: vault creation still works + `vitest` passes.
+* Extracted `buildTitle()`, `buildFilename()`, `getScaffoldDirs()`, `buildFolderName`, `buildBasePath`, `normalizeUnit/Number` into `assignments/assignment_domain.js` (pure, zero `tp`/`app`, imports `shared/slugify.js:21`). 1:1 with `assignment.md:83-84`/`77` and `modal:522-536`.
+* Added `tests/assignment_domain.test.js` (`vitest` `globals:true`, guard `if (typeof app !== 'undefined' && app.vault)` vs Templater `user_scripts_folder: 00-meta` scan, `27 pass`). Self-contained `package.json`/`node_modules` inside module.
+* Validation: vault creation via domain + `vitest` pass — done.
 
-### Phase 3 — Decouple I/O: Ports/Adapters
+### Phase 3 — Regrouped: Own Repo `obsidian-academic-cms` + Vault-only Ports + Plugin at `.obsidian/plugins/obsidian-academic-cms`
 
-* Introduce ports: `VaultPort` (`createFolder`, `getAbstractFileByPath`, `read`, `move`), `FileSystemPort` (`mkdirSync`/`symlinkSync`), `ModalPort` (DOM modal `assignments/assignment_form_modal.js:245-495`).
-* Refactor scanning `assignments/assignment_form_modal.js:184-243` (`scanLastOfType`, `scanLastOverall`) and scaffold `assignments/assignment.md:136-155` to depend on injected ports, not `tp.app.vault`/`fs` directly.
-* Templater adapter implements ports via `tp.app.vault`/`fs`; Plugin adapter will implement via Obsidian `Vault` API.
-* Validation: no behavior change; ports tested with fake in-memory vault.
+**Phase 3a — Repo extraction (this week, unblocks Templater scan)**
 
-### Phase 4 — Plugin Skeleton (Strangler completion)
+* `github.com/estebanmatias92/obsidian-academic-cms` `public` (`https://github.com/estebanmatias92/obsidian-academic-cms.git`) — created 2026-08-31 from `00-meta/academic-cms` via `filter-repo`/`rsync`, `self-contained` `package.json:1` (`obsidian-academic-cms` `0.1.0`)/`vitest.config.js:1`/`node_modules`/`tests` inside repo, own `.gitignore` (`node_modules/`, `dist/`, `coverage/`). Vault `conocimiento/.gitignore:40` already `node_modules/` but `!00-meta/` tracked `00-meta/academic-cms`; after extraction add `00-meta/academic-cms/` ignore (or `git submodule` vs separate clone `~/Projects/.../obsidian-academic-cms` + build deploy) — `00-meta/academic-cms` removed when not functional (your `remove academic-cms from 00-meta when is no longer functional`).
+* Drop hardcode `assignment.md:140` `fs` symlink `~/Projects/.../isft151-analisis-sistemas` + `os.homedir` — vault-only `Vault.createFolder` for `code/` (real vault folder), no `fs`/`adapter.getFullPath`.
 
-* Init `src/` as TypeScript Plugin (`manifest.json`, `main.ts` `onload`/`onunload`, `settings.ts`).
-* Share `domain` as dual build: `CommonJS` for `tp.user`, `ESM` for Plugin. Migrate `shared/slugify.js:21` into shared utils.
-* Plugin command `Create Assignment` reuses `domain` + `VaultPort`; Templater `assignment.md` becomes thin caller or is deprecated via `templater-obsidian/data.json:16` `folder_templates`.
-* Validation: Plugin dev vault creates identical structure to Templater; rollback path = keep Templater until Plugin `1.0`.
+**Phase 3b — Decouple I/O: Ports (Obsidian-only, agnostic, no `fs` symlink)**
+
+* Introduce `VaultPort` (`createFolder`, `getAbstractFileByPath`, `read`, `move`, `getMatchedPath`), `ModalPort` (`openAssignmentForm` → `obsidian.Modal` not `document.createElement` `modal:245-495`), `SettingsPort` (`getCodePath(): string|undefined` from `data.json` GUI user-configured, fallback vault-relative `coursePath/assignDir/folderName/code` via `VaultPort`, never hardcode `~/Projects/...`), `ClockPort` (`moment` vs `tp.date.now`). No `FileSystemPort` `symlink` — agnostic `Vault` API only, `isDesktopOnly: false`.
+* Refactor `scanLastOfType`/`scanLastOverall` (`modal:184-243` regex `^\d{4}-\d{2}-\d{2}-(.+?)-`) + scaffold `assignment.md:136-155` to `CreateAssignmentService.execute(formData, VaultPort, SettingsPort)` injected, not `tp.app.vault`/`fs` directly.
+* Validation: fake in-memory `Map<string,TFile>` vault tests, no `tp`/`document`/`fs`.
+
+**Phase 3c — Plugin Skeleton at `.obsidian/plugins/obsidian-academic-cms` (isolation complete, drop Templater)**
+
+* Init `obsidian-academic-cms/src/` as `TypeScript` Plugin (`manifest.json` `id: obsidian-academic-cms`, `version: 0.1.0`, `minAppVersion: 1.5.0`), `src/plugin/main.ts` (`onload: addCommand Create Assignment + vault.on('create')` hook replacing `templater-obsidian/data.json:16` `folder_templates: 04-projects/prj-systems-analyst`), `settings.ts` (`SettingsTab` for optional code path), `esbuild` → `dist/main.js` → deploy `cp` to `conocimiento/.obsidian/plugins/obsidian-academic-cms/` (vault ignores `main.js` per `conocimiento/.gitignore:17` intentionally, source in `obsidian-academic-cms` repo). Remove `00-meta/academic-cms` when thin `assignment.md` wrapper (`tp.user.*` delegate to `app.plugins.plugins['obsidian-academic-cms']`) not functional on `main` green. Keep `Templater` dependency (`almost just new note hook`) dropped — hook via `Obsidian API` directly.
+* Validation: Plugin dev vault creates identical `30-assignments/<date>-practico-<topic>/_assets/deliverable/code` via `VaultPort` (vault folder, agnostic, no `fs`); rollback keep `Templater` until `1.0`.
 
 ## Alternatives Considered
 
@@ -82,8 +71,11 @@ A pattern is introduced only if it **reduces coupling to `tp/vault/dom`** or **c
 * Negative: temporary dual maintenance (Templater + Plugin adapters); need to verify `tp.user` basename flattening for new files.
 * Neutral: `assignment_types.js` location decision is reversible; ADR will be updated.
 
+## History
+
+* Phase 1-2 done 2026-08-31: `assignment_types.js` + `assignment_domain.js` + `tests` `27 pass` (self-contained `package.json` inside module, guard vs `user_scripts_folder: 00-meta` scan). Repo `https://github.com/estebanmatias92/obsidian-academic-cms` `public` created and pushed.
+* Hardcode `fs` symlink `assignment.md:141` `~/Projects/.../isft151-analisis-sistemas` dropped for vault-only agnostic paths (user-configurable via `SettingsPort` GUI/`data.json`, fallback `Vault` folder structure).
+
 ## Next Step
 
-Await confirmation before executing Phase 1. On approval: create `assignments/assignment_types.js` → migrate `assignment.md` → migrate `assignment_form_modal.js` as three small commits with manual vault smoke test.
-
-* Status update after Phase 1: mark this ADR as `Accepted` and record actual validation results.
+Phase 3a repo deployed, proceed `Phase 3b` Ports (vault-only) → `Phase 3c` Plugin at `.obsidian/plugins/obsidian-academic-cms`, remove `00-meta/academic-cms` when not functional on `main` green.

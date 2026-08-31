@@ -7,13 +7,9 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "build": "echo 'TODO: esbuild src/plugin/main.ts → dist/main.js' && exit 0"
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "vitest": "^1.6.0"
-  },
-  "keywords": ["obsidian", "plugin", "academic", "templater", "cms"],
-  "license": "MIT",
-  "author": "estebanmatias92"
+  }
 }

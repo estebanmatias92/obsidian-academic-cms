@@ -128,26 +128,12 @@ tR = frontmatter +tR;
 const folderName = _domain.buildFolderName ? _domain.buildFolderName({ date: responses.date, type: responses.type_slug, topic: responses.topic }) : `${responses.date}-${responses.type_slug}-${(_domain.slugify || tp.user.slugify)(responses.topic)}`;
 const basePath = _domain.buildBasePath ? _domain.buildBasePath({ coursePath, assignDir, folderName }) : `${coursePath}/${assignDir}/${folderName}`;
 
-// Create scaffold subdirectories
+// Create scaffold subdirectories — vault-only, agnostic of host OS (no fs symlink, no hardcode path)
+// `code/` is now a real vault folder via Vault API. If external sync is needed,
+// it must be configured via Plugin Settings (SettingsPort) with user-provided vault-relative or absolute path,
+// never hardcoded `~/Projects/...`. Fallback is Obsidian folder structure.
 for (const dir of dirs) {
     await tp.app.vault.createFolder(`${basePath}/${dir}`);
-}
-
-// If code dir is included, create external repo folder + symlink
-if (dirs.includes('code')) {
-    const fs = require('fs');
-    const vaultFolderName = coursePath.split('/').pop();
-    const homeDir = require('os').homedir();
-    const extBase = `${homeDir}/Projects/github.com/estebanmatias92/isft151-analisis-sistemas`;
-    const extPath = `${extBase}/${vaultFolderName}/${folderName}`;
-    const vaultCodePath = tp.app.vault.adapter.getFullPath(`${basePath}/code`);
-
-    if (!fs.existsSync(extPath)) {
-        fs.mkdirSync(extPath, { recursive: true });
-    }
-
-    fs.rmSync(vaultCodePath, { recursive: true, force: true });
-    fs.symlinkSync(extPath, vaultCodePath);
 }
 
 // Move file into the scaffolding folder
