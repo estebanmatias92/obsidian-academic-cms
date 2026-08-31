@@ -24,6 +24,8 @@ export interface CreateAssignmentResult {
   filename: string;
   basePath: string;
   frontmatter: string;
+  body: string;
+  path: string; // full vault path where the note was created
 }
 
 export class CreateAssignmentService {
@@ -62,14 +64,16 @@ export class CreateAssignmentService {
 
     const includeCode = formData.include_code === true;
     const dirs = getScaffoldDirs(typeSlug, includeCode);
+    const codeFolderPath = this.settingsPort.getCodeFolderPath();
 
     for (const dir of dirs) {
+      if (dir === 'code' && codeFolderPath) continue; // custom location handled below
       await this.vaultPort.createFolder(`${basePath}/${dir}`);
     }
 
-    const codeFolderPath = this.settingsPort.getCodeFolderPath();
-    if (codeFolderPath && dirs.includes('code')) {
-      await this.vaultPort.createFolder(`${basePath}/code`);
+    if (dirs.includes('code') && codeFolderPath) {
+      // User-configured vault-relative code path (SettingsTab), overrides default basePath/code
+      await this.vaultPort.createFolder(`${codeFolderPath}/${folderName}-code`);
     }
 
     const frontmatter = this.buildFrontmatter({
@@ -93,7 +97,69 @@ export class CreateAssignmentService {
       ai_chat_links: formData.ai_chat_links,
     });
 
-    return { title, filename, basePath, frontmatter };
+    const body = this.buildBody({
+      title,
+      student: context.career.student,
+      submission_link: formData.submission_link,
+      instructions_link: formData.instructions_link,
+      submission_file_format: formData.submission_file_format || '',
+    });
+
+    const path = `${basePath}/${filename}`;
+    await this.vaultPort.createFile(path, frontmatter + '\n' + body);
+
+    return { title, filename, basePath, frontmatter, body, path };
+  }
+
+  private buildBody(params: {
+    title: string;
+    student: string;
+    submission_link: string;
+    instructions_link: string;
+    submission_file_format: string;
+  }): string {
+    return `# ${params.title}
+<!--
+- **Materia**: \`= this.course.name\`
+- **Unidad**: \`= this.unit\`
+- **Actividad**: \`= this.assignment\`
+- **Tema**: \`= this.topic\`
+- **Profesor**: \`= this.professor\`
+- **Estudiante**: \`= this.student\`
+- **Fecha de entrega**: \`= this.due_date\`
+- **Completado**: \`= this.status_completed\`
+- **Instrucciones**: \`= this.links_instructions\`
+- **Copia Local**: \`= this.links_local_file\`
+- **Enlace de Entrega**: \`= this.links_submission\`
+- **Estudiante**: ${params.student}
+-->
+
+## 📌 Descripción de la Actividad
+
+- [Plataforma de Entrega](${params.submission_link}) | [Instrucciones](${params.instructions_link})
+- Objetivos principales:
+	- Desarrollar consignas teórica-prácticas
+- Formato de entrega requerido: **${params.submission_file_format}**
+
+## 📝 Desarrollo
+
+### Punto 1
+
+
+
+## 🛠️ Desarrollo Práctico
+
+
+
+
+## 📚 Material de Referencia
+
+- ...
+
+
+## 📂 Archivos Adjuntos
+
+- ...`;
   }
 
   private buildFrontmatter(params: {

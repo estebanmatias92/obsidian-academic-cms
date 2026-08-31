@@ -2,7 +2,9 @@ import { App, Plugin, Notice, TFile } from 'obsidian';
 import { AcademicCMSSettings, DEFAULT_SETTINGS, AcademicCMSSettingTab } from './settings';
 import { ObsidianModalPort, AssignmentFormPrefill } from '../adapters/obsidian/modal_adapter';
 import { ObsidianVaultAdapter } from '../adapters/obsidian/vault_adapter';
+import { ObsidianSettingsAdapter } from '../adapters/obsidian/settings_adapter';
 import { AssignmentNumberService } from '../use_cases/assignment_number_service';
+import { CreateAssignmentService } from '../use_cases/create_assignment_service';
 import { AssignmentFormContext } from '../ports/modal_port';
 
 export default class AcademicCMSPlugin extends Plugin {
@@ -123,7 +125,31 @@ export default class AcademicCMSPlugin extends Plugin {
       context
     );
 
-    new Notice(`Assignment scaffold: ${data.type} ${data.assignment_number} — ${data.topic}`);
-    // Phase 3c: CreateAssignmentService.execute(data, context) writes folders + note.
+    if (!context.course || !context.career) {
+      new Notice('Academic CMS: missing course or career metadata (_course.md / _career.md)');
+      return;
+    }
+
+    // Phase 3c: write path — folders + note via VaultPort/SettingsPort
+    const settings = new ObsidianSettingsAdapter(this);
+    const createService = new CreateAssignmentService(vault, settings);
+
+    try {
+      const result = await createService.execute(data, {
+        coursePath: context.coursePath,
+        assignDir: context.assignDir,
+        course: context.course,
+        career: context.career,
+        date: data.date || prefill.date || '',
+      });
+      new Notice(`Created: ${result.title}`);
+      const created = this.app.vault.getAbstractFileByPath(result.path);
+      if (created instanceof TFile) {
+        await this.app.workspace.getLeaf().openFile(created);
+      }
+    } catch (e) {
+      console.error('Academic CMS: failed to create assignment', e);
+      new Notice(`Academic CMS error: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 }

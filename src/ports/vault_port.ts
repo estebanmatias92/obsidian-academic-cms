@@ -18,6 +18,7 @@ export interface VaultPort {
   getAbstractFileByPath(path: string): VaultFolder | VaultFile | null;
   readFile(file: VaultFile): Promise<string>;
   createFolder(path: string): Promise<void>;
+  createFile(path: string, content: string): Promise<VaultFile>;
   moveFile(file: VaultFile, newPath: string): Promise<void>;
   getMatchedPath(pattern: string): string | null;
   getActiveFilePath(): string | null;

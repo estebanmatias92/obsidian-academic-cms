@@ -47,6 +47,11 @@ export class ObsidianVaultAdapter implements VaultPort {
     await this.app.vault.createFolder(path);
   }
 
+  async createFile(path: string, content: string): Promise<VaultFile> {
+    const tFile = await this.app.vault.create(path, content);
+    return toVaultFile(tFile);
+  }
+
   async moveFile(file: VaultFile, newPath: string): Promise<void> {
     const tFile = this.app.vault.getAbstractFileByPath(file.path);
     if (!(tFile instanceof TFile)) throw new Error(`File not found: ${file.path}`);

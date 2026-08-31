@@ -68,16 +68,41 @@ var canonicalTypes = {
   parcial: "Examen Parcial",
   final: "Examen Final"
 };
+var aliasMap = {
+  practica: "practico",
+  "trabajo-practico": "practico"
+};
 var typeDisplayNames = {
   ...canonicalTypes,
   practica: canonicalTypes.practico,
   "trabajo-practico": canonicalTypes.practico
 };
 var typeOptions = { ...canonicalTypes };
+var scaffoldTemplates = {
+  practico: ["_assets", "deliverable"],
+  practica: ["_assets", "deliverable"],
+  "trabajo-practico": ["_assets", "deliverable"],
+  laboratorio: ["_assets", "deliverable"],
+  kata: ["_assets", "deliverable"],
+  cuestionario: ["_assets", "deliverable"],
+  trivia: ["_assets", "deliverable"],
+  investigacion: ["_assets", "deliverable"],
+  caso: ["_assets", "deliverable"],
+  ejercicios: ["_assets", "deliverable"],
+  parcial: ["_assets"],
+  final: ["_assets"]
+};
 var codeTypes = ["practico", "laboratorio", "kata"];
 var typeAliases = {
   practico: ["practico", "practica", "trabajo-practico"]
 };
+function resolveType(slug) {
+  return aliasMap[slug] || slug;
+}
+function getDisplayName(slug) {
+  const canonical = resolveType(slug);
+  return canonicalTypes[canonical] || typeDisplayNames[slug] || slug;
+}
 
 // src/adapters/obsidian/modal_adapter.ts
 var EXTENSION_MAP = {
@@ -258,6 +283,10 @@ var ObsidianVaultAdapter = class {
   async createFolder(path) {
     await this.app.vault.createFolder(path);
   }
+  async createFile(path, content) {
+    const tFile = await this.app.vault.create(path, content);
+    return toVaultFile(tFile);
+  }
   async moveFile(file, newPath) {
     const tFile = this.app.vault.getAbstractFileByPath(file.path);
     if (!(tFile instanceof import_obsidian3.TFile))
@@ -271,6 +300,17 @@ var ObsidianVaultAdapter = class {
   getActiveFilePath() {
     var _a, _b;
     return (_b = (_a = this.app.workspace.getActiveFile()) == null ? void 0 : _a.path) != null ? _b : null;
+  }
+};
+
+// src/adapters/obsidian/settings_adapter.ts
+var ObsidianSettingsAdapter = class {
+  constructor(plugin) {
+    this.plugin = plugin;
+  }
+  getCodeFolderPath() {
+    const path = this.plugin.settings.codeFolderPath;
+    return path && path.trim() !== "" ? path : void 0;
   }
 };
 
@@ -360,6 +400,219 @@ var AssignmentNumberService = class {
       unit: unit != null ? unit : void 0,
       assignment_number: assignment_number != null ? assignment_number : void 0
     };
+  }
+};
+
+// src/domain/slugify.ts
+var slugify = (text) => {
+  return text.normalize("NFKD").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s-]+/g, "-");
+};
+
+// src/domain/assignment_domain.ts
+function pad2(value, fallback = "01") {
+  return String(value != null ? value : fallback).padStart(2, "0");
+}
+function buildTitle(params) {
+  const unitPadded = pad2(params.unit);
+  const numPadded = pad2(params.assignmentNumber);
+  const topicStr = params.topic || "Introduccion";
+  const display = getDisplayName(params.type || "practico");
+  if (params.courseName) {
+    return `${params.courseName} - Unidad ${unitPadded} - ${display} ${numPadded} - ${topicStr}`;
+  }
+  return `Unidad ${unitPadded} - ${display} ${numPadded} - ${topicStr}`;
+}
+function buildFilename(params) {
+  const dateStr = params.date;
+  const studentSlug = slugify(params.student || "");
+  const rawCourse = params.courseCode && params.courseCode !== "" && params.courseCode !== "undefined" ? params.courseCode : params.courseName || "curso";
+  const courseSlug = slugify(rawCourse);
+  const typeSlug = slugify(params.type || "practico");
+  const numPadded = pad2(params.assignmentNumber);
+  const topicSlug = slugify(params.topic || "Introduccion");
+  return `${dateStr}-${studentSlug}-${courseSlug}-${typeSlug}-${numPadded}-${topicSlug}`;
+}
+function buildFolderName(params) {
+  const typeSlug = slugify(params.type || "practico");
+  const topicSlug = slugify(params.topic || "Introduccion");
+  return `${params.date}-${typeSlug}-${topicSlug}`;
+}
+function buildBasePath(params) {
+  return `${params.coursePath}/${params.assignDir}/${params.folderName}`;
+}
+function getScaffoldDirs(typeSlug, includeCode = null) {
+  const canonical = resolveType(typeSlug);
+  const base = scaffoldTemplates[canonical] || scaffoldTemplates[typeSlug] || ["_assets", "deliverable"];
+  const dirs = [...base];
+  const shouldInclude = includeCode !== null ? includeCode : codeTypes.includes(canonical);
+  if (shouldInclude && !dirs.includes("code"))
+    dirs.push("code");
+  return dirs;
+}
+function normalizeUnit(unit) {
+  return pad2(unit, "01");
+}
+function normalizeNumber(n) {
+  return pad2(n, "01");
+}
+
+// src/use_cases/create_assignment_service.ts
+var CreateAssignmentService = class {
+  constructor(vaultPort, settingsPort) {
+    this.vaultPort = vaultPort;
+    this.settingsPort = settingsPort;
+  }
+  async execute(formData, context) {
+    const typeSlug = formData.type;
+    const unit = normalizeUnit(formData.unit);
+    const assignmentNumber = normalizeNumber(formData.assignment_number);
+    const topic = formData.topic || "Introduccion";
+    const title = buildTitle({
+      courseName: context.course.name,
+      unit,
+      type: typeSlug,
+      assignmentNumber,
+      topic
+    });
+    const filenameBase = buildFilename({
+      date: context.date,
+      student: context.career.student,
+      courseCode: context.course.code,
+      courseName: context.course.name,
+      type: typeSlug,
+      assignmentNumber,
+      topic
+    });
+    const filename = `${filenameBase}.md`;
+    const folderName = buildFolderName({ date: context.date, type: typeSlug, topic });
+    const basePath = buildBasePath({ coursePath: context.coursePath, assignDir: context.assignDir, folderName });
+    const includeCode = formData.include_code === true;
+    const dirs = getScaffoldDirs(typeSlug, includeCode);
+    const codeFolderPath = this.settingsPort.getCodeFolderPath();
+    for (const dir of dirs) {
+      if (dir === "code" && codeFolderPath)
+        continue;
+      await this.vaultPort.createFolder(`${basePath}/${dir}`);
+    }
+    if (dirs.includes("code") && codeFolderPath) {
+      await this.vaultPort.createFolder(`${codeFolderPath}/${folderName}-code`);
+    }
+    const frontmatter = this.buildFrontmatter({
+      title,
+      filename,
+      type: typeSlug,
+      date: context.date,
+      due_date: formData.due_date,
+      author: context.career.student,
+      course: context.course,
+      unit,
+      assignmentNumber,
+      topic,
+      difficulty: formData.difficulty,
+      priority: formData.priority,
+      submission_type: formData.submission_type,
+      submission_file_format: formData.submission_file_format || "",
+      submission_platform: formData.submission_platform,
+      instructions_link: formData.instructions_link,
+      submission_link: formData.submission_link,
+      ai_chat_links: formData.ai_chat_links
+    });
+    const body = this.buildBody({
+      title,
+      student: context.career.student,
+      submission_link: formData.submission_link,
+      instructions_link: formData.instructions_link,
+      submission_file_format: formData.submission_file_format || ""
+    });
+    const path = `${basePath}/${filename}`;
+    await this.vaultPort.createFile(path, frontmatter + "\n" + body);
+    return { title, filename, basePath, frontmatter, body, path };
+  }
+  buildBody(params) {
+    return `# ${params.title}
+<!--
+- **Materia**: \`= this.course.name\`
+- **Unidad**: \`= this.unit\`
+- **Actividad**: \`= this.assignment\`
+- **Tema**: \`= this.topic\`
+- **Profesor**: \`= this.professor\`
+- **Estudiante**: \`= this.student\`
+- **Fecha de entrega**: \`= this.due_date\`
+- **Completado**: \`= this.status_completed\`
+- **Instrucciones**: \`= this.links_instructions\`
+- **Copia Local**: \`= this.links_local_file\`
+- **Enlace de Entrega**: \`= this.links_submission\`
+- **Estudiante**: ${params.student}
+-->
+
+## \u{1F4CC} Descripci\xF3n de la Actividad
+
+- [Plataforma de Entrega](${params.submission_link}) | [Instrucciones](${params.instructions_link})
+- Objetivos principales:
+	- Desarrollar consignas te\xF3rica-pr\xE1cticas
+- Formato de entrega requerido: **${params.submission_file_format}**
+
+## \u{1F4DD} Desarrollo
+
+### Punto 1
+
+
+
+## \u{1F6E0}\uFE0F Desarrollo Pr\xE1ctico
+
+
+
+
+## \u{1F4DA} Material de Referencia
+
+- ...
+
+
+## \u{1F4C2} Archivos Adjuntos
+
+- ...`;
+  }
+  buildFrontmatter(params) {
+    const topicSlug = params.topic.normalize("NFKD").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s-]+/g, "-");
+    const typeSlug = params.type.normalize("NFKD").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s-]+/g, "-");
+    const aiChatLinks = params.ai_chat_links.split("\n").filter((link) => link.trim()).map((item) => `  - ${item.trim()}`).join("\n");
+    return `---
+title: "${params.title}"
+filename: "${params.filename}"
+type: "${params.type}"
+date: "${params.date}"
+due_date: "${params.due_date}"
+author: "${params.author}"
+course:
+  name: "${params.course.name}"
+  code: "${params.course.code}"
+unit: "${params.unit}"
+assignment_number: "${params.assignmentNumber}"
+topic: "${params.topic}"
+difficulty: ${params.difficulty}
+priority: ${params.priority}
+status_completed: false
+status_submitted: false
+status_graded: false
+grading:
+  max_points: 100
+  earned_points: 0
+  weight: 0.00
+submission_type: "${params.submission_type}"
+submission_file_format: "${params.submission_file_format}"
+submission_platform: "${params.submission_platform}"
+links_instructions: "${params.instructions_link}"
+links_submission: "${params.submission_link}"
+links_local_copy: ""
+ai_chat_links:
+${aiChatLinks ? "\n" + aiChatLinks : ""}
+tags:
+- ${topicSlug}
+- second-year
+- ${typeSlug}
+- unit-${params.unit}
+toc: false
+---`;
   }
 };
 
@@ -460,6 +713,28 @@ var AcademicCMSPlugin = class extends import_obsidian4.Plugin {
       data.type,
       context
     );
-    new import_obsidian4.Notice(`Assignment scaffold: ${data.type} ${data.assignment_number} \u2014 ${data.topic}`);
+    if (!context.course || !context.career) {
+      new import_obsidian4.Notice("Academic CMS: missing course or career metadata (_course.md / _career.md)");
+      return;
+    }
+    const settings = new ObsidianSettingsAdapter(this);
+    const createService = new CreateAssignmentService(vault, settings);
+    try {
+      const result = await createService.execute(data, {
+        coursePath: context.coursePath,
+        assignDir: context.assignDir,
+        course: context.course,
+        career: context.career,
+        date: data.date || prefill.date || ""
+      });
+      new import_obsidian4.Notice(`Created: ${result.title}`);
+      const created = this.app.vault.getAbstractFileByPath(result.path);
+      if (created instanceof import_obsidian4.TFile) {
+        await this.app.workspace.getLeaf().openFile(created);
+      }
+    } catch (e) {
+      console.error("Academic CMS: failed to create assignment", e);
+      new import_obsidian4.Notice(`Academic CMS error: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 };
