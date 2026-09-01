@@ -8,4 +8,10 @@ export class ObsidianSettingsAdapter implements SettingsPort {
     const path = this.plugin.settings.codeFolderPath;
     return path && path.trim() !== '' ? path : undefined;
   }
+
+  getExternalCodeBasePath(): string | undefined {
+    const path = this.plugin.settings.externalCodeBasePath;
+    return path && path.trim() !== '' ? path : undefined;
+  }
 }
+

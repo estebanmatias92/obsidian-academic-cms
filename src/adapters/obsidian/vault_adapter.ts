@@ -37,6 +37,14 @@ export class ObsidianVaultAdapter implements VaultPort {
     return null;
   }
 
+  getVaultBasePath(): string | null {
+    const adapter = this.app.vault.adapter;
+    if (adapter && typeof (adapter as any).getBasePath === 'function') {
+      return (adapter as any).getBasePath();
+    }
+    return null;
+  }
+
   async readFile(file: VaultFile): Promise<string> {
     const tFile = this.app.vault.getAbstractFileByPath(file.path);
     if (!(tFile instanceof TFile)) throw new Error(`File not found: ${file.path}`);
@@ -44,7 +52,12 @@ export class ObsidianVaultAdapter implements VaultPort {
   }
 
   async createFolder(path: string): Promise<void> {
-    await this.app.vault.createFolder(path);
+    try {
+      await this.app.vault.createFolder(path);
+    } catch (e: any) {
+      if (e.message?.includes('Folder already exists')) return;
+      throw e;
+    }
   }
 
   async createFile(path: string, content: string): Promise<VaultFile> {

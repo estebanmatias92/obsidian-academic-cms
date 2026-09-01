@@ -3,10 +3,12 @@ import type AcademicCMSPlugin from './main';
 
 export interface AcademicCMSSettings {
   codeFolderPath: string;
+  externalCodeBasePath: string;
 }
 
 export const DEFAULT_SETTINGS: AcademicCMSSettings = {
   codeFolderPath: '',
+  externalCodeBasePath: '',
 };
 
 export class AcademicCMSSettingTab extends PluginSettingTab {
@@ -28,6 +30,19 @@ export class AcademicCMSSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.codeFolderPath)
           .onChange(async (value) => {
             this.plugin.settings.codeFolderPath = value;
+            await this.plugin.saveSettings();
+          })
+      );
+    containerEl.createEl('hr');
+    new Setting(containerEl)
+      .setName('External code base path')
+      .setDesc('Absolute host filesystem path for code symlink. Plugin creates <externalBase>/<subject>/<folderName>/ linked from vault. Leave empty for default vault folder. Desktop only.')
+      .addText((text) =>
+        text
+          .setPlaceholder('e.g. /home/matt/Projects/.../isft151-analisis-sistemas')
+          .setValue(this.plugin.settings.externalCodeBasePath)
+          .onChange(async (value) => {
+            this.plugin.settings.externalCodeBasePath = value;
             await this.plugin.saveSettings();
           })
       );

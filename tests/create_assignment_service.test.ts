@@ -13,6 +13,7 @@ class FakeVaultPort {
   async readFile(): Promise<string> { return ''; }
   getMatchedPath(): string | null { return null; }
   getActiveFilePath(): string | null { return null; }
+  getVaultBasePath(): string | null { return '/home/matt/Vaults/conocimiento'; }
 
   async createFolder(path: string): Promise<void> {
     this.folders.push(path);
@@ -27,8 +28,26 @@ class FakeVaultPort {
 }
 
 class FakeSettingsPort {
-  constructor(private codePath: string | undefined) {}
+  constructor(private codePath: string | undefined, private externalPath: string | undefined = undefined) {}
   getCodeFolderPath(): string | undefined { return this.codePath; }
+  getExternalCodeBasePath(): string | undefined { return this.externalPath; }
+}
+
+class FakeFileSystemPort {
+  dirs: string[] = [];
+  symlinks: { target: string; link: string }[] = [];
+
+  isDesktop(): boolean { return true; }
+
+  async createDir(path: string): Promise<void> {
+    this.dirs.push(path);
+  }
+
+  async exists(path: string): Promise<boolean> { return false; }
+
+  async symlink(target: string, linkPath: string): Promise<void> {
+    this.symlinks.push({ target, link: linkPath });
+  }
 }
 
 const CONTEXT = {
@@ -59,13 +78,15 @@ const FORM: AssignmentFormData = {
 
 describe('CreateAssignmentService', () => {
   let vault: FakeVaultPort;
+  let fs: FakeFileSystemPort;
 
   beforeEach(() => {
     vault = new FakeVaultPort();
+    fs = new FakeFileSystemPort();
   });
 
   it('creates scaffold dirs incl. code for practico (default location)', async () => {
-    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any);
+    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any, fs as any);
     const result = await svc.execute(FORM, CONTEXT);
 
     expect(result.title).toBe('Base de Datos - Unidad 01 - Trabajo Práctico 01 - Introduccion RDBMS');
@@ -77,7 +98,7 @@ describe('CreateAssignmentService', () => {
   });
 
   it('writes note with frontmatter and body at basePath', async () => {
-    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any);
+    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any, fs as any);
     const result = await svc.execute(FORM, CONTEXT);
 
     const content = vault.files.get(result.path);
@@ -91,7 +112,7 @@ describe('CreateAssignmentService', () => {
   });
 
   it('uses custom code folder from SettingsPort instead of basePath/code', async () => {
-    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort('50-code') as any);
+    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort('50-code') as any, fs as any);
     await svc.execute(FORM, CONTEXT);
 
     const base = '01-carrera/isft-systems/subjects/bd-01/30-assignments/2026-08-31-practico-introduccion-rdbms';
@@ -104,7 +125,7 @@ describe('CreateAssignmentService', () => {
   });
 
   it('parcial → only _assets, no code', async () => {
-    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any);
+    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any, fs as any);
     const form = { ...FORM, type: 'parcial', include_code: false };
     await svc.execute(form, CONTEXT);
 
@@ -113,17 +134,33 @@ describe('CreateAssignmentService', () => {
   });
 
   it('pads unit and assignment_number', async () => {
-    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any);
+    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any, fs as any);
     const result = await svc.execute(FORM, CONTEXT);
     expect(result.frontmatter).toContain('unit: "01"');
     expect(result.frontmatter).toContain('assignment_number: "01"');
   });
 
   it('tags include topic slug, type slug and unit', async () => {
-    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any);
+    const svc = new CreateAssignmentService(vault as any, new FakeSettingsPort(undefined) as any, fs as any);
     const result = await svc.execute(FORM, CONTEXT);
     expect(result.frontmatter).toContain('- introduccion-rdbms');
     expect(result.frontmatter).toContain('- practico');
     expect(result.frontmatter).toContain('- unit-01');
+  });
+
+  it('creates symlink with external code base on desktop', async () => {
+    const settings = new FakeSettingsPort(undefined, '/home/matt/Projects/isft151-analisis-sistemas');
+    const svc = new CreateAssignmentService(vault as any, settings as any, fs as any);
+    await svc.execute(FORM, CONTEXT);
+
+    const expectedSubject = 'bd-01';
+    const expectedFolder = '2026-08-31-practico-introduccion-rdbms';
+    const expectedTarget = `/home/matt/Projects/isft151-analisis-sistemas/${expectedSubject}/${expectedFolder}`;
+
+    expect(fs.dirs).toContain(expectedTarget);
+    expect(fs.symlinks).toContainEqual({
+      target: expectedTarget,
+      link: `/home/matt/Vaults/conocimiento/01-carrera/isft-systems/subjects/bd-01/30-assignments/2026-08-31-practico-introduccion-rdbms/code`,
+    });
   });
 });

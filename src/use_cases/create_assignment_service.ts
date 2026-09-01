@@ -1,5 +1,6 @@
-import { VaultPort } from '../ports/vault_port';
+import { VaultPort, VaultFolder, VaultFile } from '../ports/vault_port';
 import { SettingsPort } from '../ports/settings_port';
+import { FileSystemPort } from '../ports/file_system_port';
 import {
   buildTitle,
   buildFilename,
@@ -8,6 +9,8 @@ import {
   getScaffoldDirs,
   normalizeUnit,
   normalizeNumber,
+  buildExternalCodePath,
+  codeTypes,
 } from '../domain/assignment_domain';
 import { AssignmentFormData } from '../ports/modal_port';
 
@@ -25,13 +28,14 @@ export interface CreateAssignmentResult {
   basePath: string;
   frontmatter: string;
   body: string;
-  path: string; // full vault path where the note was created
+  path: string;
 }
 
 export class CreateAssignmentService {
   constructor(
     private vaultPort: VaultPort,
-    private settingsPort: SettingsPort
+    private settingsPort: SettingsPort,
+    private fsPort: FileSystemPort
   ) {}
 
   async execute(formData: AssignmentFormData, context: CreateAssignmentContext): Promise<CreateAssignmentResult> {
@@ -63,17 +67,42 @@ export class CreateAssignmentService {
     const basePath = buildBasePath({ coursePath: context.coursePath, assignDir: context.assignDir, folderName });
 
     const includeCode = formData.include_code === true;
+    const canonicalType = typeSlug;
+    const shouldCreateCode = includeCode || codeTypes.includes(canonicalType);
+
     const dirs = getScaffoldDirs(typeSlug, includeCode);
-    const codeFolderPath = this.settingsPort.getCodeFolderPath();
+
+    const externalCodeBase = this.settingsPort.getExternalCodeBasePath();
+    const vaultCodePath = this.settingsPort.getCodeFolderPath();
+
+    const subject = context.coursePath.split('/').pop() || '';
+
+    const shouldUseVaultCodePath = !!vaultCodePath && !externalCodeBase;
 
     for (const dir of dirs) {
-      if (dir === 'code' && codeFolderPath) continue; // custom location handled below
+      if (dir === 'code' && (externalCodeBase || shouldUseVaultCodePath)) continue;
       await this.vaultPort.createFolder(`${basePath}/${dir}`);
     }
 
-    if (dirs.includes('code') && codeFolderPath) {
-      // User-configured vault-relative code path (SettingsTab), overrides default basePath/code
-      await this.vaultPort.createFolder(`${codeFolderPath}/${folderName}-code`);
+    if (shouldCreateCode) {
+      if (externalCodeBase) {
+        if (this.fsPort.isDesktop()) {
+          const externalPath = buildExternalCodePath({
+            externalBase: externalCodeBase,
+            subject,
+            folderName,
+          });
+          await this.fsPort.createDir(externalPath);
+          const vaultBase = this.vaultPort.getVaultBasePath?.() || '';
+          const codeLinkPath = `${vaultBase}/${basePath}/code`;
+          await this.fsPort.symlink(externalPath, codeLinkPath);
+        } else {
+          console.warn('External code base set but not on desktop, falling back to vault folder');
+          await this.vaultPort.createFolder(`${basePath}/code`);
+        }
+      } else if (vaultCodePath) {
+        await this.vaultPort.createFolder(`${vaultCodePath}/${folderName}-code`);
+      }
     }
 
     const frontmatter = this.buildFrontmatter({
@@ -151,11 +180,9 @@ export class CreateAssignmentService {
 
 
 
-
 ## 📚 Material de Referencia
 
 - ...
-
 
 ## 📂 Archivos Adjuntos
 
@@ -230,3 +257,4 @@ toc: false
 ---`;
   }
 }
+

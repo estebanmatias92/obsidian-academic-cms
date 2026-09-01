@@ -1,28 +1,52 @@
-import { App, Plugin, Notice, TFile } from 'obsidian';
+import { App, Plugin, Notice, TFile, TFolder } from 'obsidian';
 import { AcademicCMSSettings, DEFAULT_SETTINGS, AcademicCMSSettingTab } from './settings';
 import { ObsidianModalPort, AssignmentFormPrefill } from '../adapters/obsidian/modal_adapter';
 import { ObsidianVaultAdapter } from '../adapters/obsidian/vault_adapter';
 import { ObsidianSettingsAdapter } from '../adapters/obsidian/settings_adapter';
+import { ObsidianFileSystemAdapter } from '../adapters/obsidian/file_system_adapter';
 import { AssignmentNumberService } from '../use_cases/assignment_number_service';
 import { CreateAssignmentService } from '../use_cases/create_assignment_service';
-import { AssignmentFormContext } from '../ports/modal_port';
+import type { AssignmentFormContext, AssignmentFormData } from '../ports/modal_port';
 
 export default class AcademicCMSPlugin extends Plugin {
   settings: AcademicCMSSettings;
+  private vaultAdapter!: ObsidianVaultAdapter;
+  private settingsAdapter!: ObsidianSettingsAdapter;
+  private fsAdapter!: ObsidianFileSystemAdapter;
 
   async onload() {
     await this.loadSettings();
     this.addSettingTab(new AcademicCMSSettingTab(this.app, this));
 
+    this.vaultAdapter = new ObsidianVaultAdapter(this.app);
+    this.settingsAdapter = new ObsidianSettingsAdapter(this);
+    this.fsAdapter = new ObsidianFileSystemAdapter(this);
+
     this.addCommand({
       id: 'create-assignment',
       name: 'Create Assignment',
-      callback: () => this.openAssignmentModal(),
+      checkCallback: (checking) => {
+        const ctx = this.getContextFromActiveFile();
+        if (checking) return !!ctx;
+        if (!ctx) return false;
+        this.openAssignmentModalForContext(ctx).catch(console.error);
+        return true;
+      },
     });
 
     this.registerEvent(
-      this.app.vault.on('create', (file) => {
-        if (!(file instanceof TFile)) return;
+      this.app.workspace.on('file-menu', (menu, file) => {
+        if (file instanceof TFolder) {
+          const ctx = this.getContextFromPath(file.path);
+          if (ctx) {
+            menu.addItem((item) =>
+              item
+                .setTitle('New Assignment')
+                .setIcon('folder-plus')
+                .onClick(() => this.openAssignmentModalForPath(file.path))
+            );
+          }
+        }
       })
     );
 
@@ -39,10 +63,6 @@ export default class AcademicCMSPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
-  /**
-   * Match active file path against a wildcard pattern (port of shared/get_matched_path.js).
-   * e.g. pattern "*\/*systems*\/subjects\/*\/" matches "foo/isft-systems/subjects/bd-01/..."
-   */
   private matchPathPattern(activePath: string, pathPattern: string): string | null {
     const normalized = pathPattern.replace(/^\/|\/$/g, '');
     const regexParts = normalized
@@ -55,24 +75,20 @@ export default class AcademicCMSPlugin extends Plugin {
     return segments.slice(0, regexParts.length).join('/') || null;
   }
 
-  /**
-   * Build the assignment context from the active file.
-   * Returns null (with a Notice) when not inside a course folder.
-   */
-  private getContext(): AssignmentFormContext | null {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile?.path) {
-      new Notice('Academic CMS: no active file');
-      return null;
-    }
+  private findSubjectPathFromPath(filePath: string): string | null {
+    const parts = filePath.split('/');
+    const subjectsIdx = parts.findIndex((p) => p === 'subjects');
+    if (subjectsIdx === -1) return null;
+    if (subjectsIdx + 2 > parts.length) return null;
+    return parts.slice(0, subjectsIdx + 2).join('/');
+  }
 
-    const coursePath = this.matchPathPattern(activeFile.path, '*/*systems*/subjects/*/');
-    if (!coursePath) {
-      new Notice('No se detectó una materia — run this from inside a course folder');
-      return null;
-    }
+  private getContextFromPath(filePath: string): AssignmentFormContext | null {
+    const coursePath = this.matchPathPattern(filePath, '*/*systems*/subjects/*/') 
+      || this.findSubjectPathFromPath(filePath);
+    if (!coursePath) return null;
 
-    const assignDir = activeFile.path.includes('/40-exams/') ? '40-exams' : '30-assignments';
+    const assignDir = filePath.includes('/40-exams/') ? '40-exams' : '30-assignments';
 
     let course: { name: string; code: string } | undefined;
     const courseFile = this.app.vault.getAbstractFileByPath(`${coursePath}/_course.md`);
@@ -81,7 +97,6 @@ export default class AcademicCMSPlugin extends Plugin {
       if (fm?.course) course = { name: fm.course, code: fm.code ?? '' };
     }
 
-    // Career file lives at the career root: strip "/subjects/<x>" (2 segments) from coursePath
     let career: { student: string } | undefined;
     const careerPath = coursePath.split('/').slice(0, -2).join('/');
     const careerFile = this.app.vault.getAbstractFileByPath(`${careerPath}/_career.md`);
@@ -93,48 +108,70 @@ export default class AcademicCMSPlugin extends Plugin {
     return { coursePath, assignDir, course, career };
   }
 
-  async openAssignmentModal() {
-    const context = this.getContext();
+  private getContextFromActiveFile(): AssignmentFormContext | null {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile?.path) {
+      new Notice('Academic CMS: no active file');
+      return null;
+    }
+
+    const context = this.getContextFromPath(activeFile.path);
+    if (!context) {
+      new Notice('No se detectó una materia — run this from inside a course folder');
+    }
+    return context;
+  }
+
+  private async openAssignmentModal() {
+    const context = this.getContextFromActiveFile();
     if (!context) return;
+    await this.openAssignmentModalForContext(context);
+  }
 
-    // Prefill unit/assignment_number from vault scan (Phase 3b — via VaultPort)
-    const vault = new ObsidianVaultAdapter(this.app);
-    const numberService = new AssignmentNumberService(vault);
+  private async openAssignmentModalForPath(path: string) {
+    const context = this.getContextFromPath(path);
+    if (!context) return;
+    await this.openAssignmentModalForContext(context);
+  }
 
-    const today = new Date();
-    const iso = (d: Date) => d.toISOString().slice(0, 10);
-    const addDays = (d: Date, days: number) => new Date(d.getTime() + days * 86400000);
-
-    const prefill: AssignmentFormPrefill = {
-      unit: await numberService.getNextUnit(context),
-      date: iso(today),
-      due_date: iso(addDays(today, 7)),
-    };
-
-    const modal = new ObsidianModalPort(this.app);
-    const data = await modal.openAssignmentForm(context, prefill);
-
-    if (!data) {
-      new Notice('Creación cancelada');
-      return;
-    }
-
-    // Phase 3b: next assignment number for selected type (type chosen inside the modal)
-    data.assignment_number = await numberService.getNextAssignmentNumber(
-      data.type,
-      context
-    );
-
-    if (!context.course || !context.career) {
-      new Notice('Academic CMS: missing course or career metadata (_course.md / _career.md)');
-      return;
-    }
-
-    // Phase 3c: write path — folders + note via VaultPort/SettingsPort
-    const settings = new ObsidianSettingsAdapter(this);
-    const createService = new CreateAssignmentService(vault, settings);
-
+  private async openAssignmentModalForContext(context: AssignmentFormContext) {
     try {
+      if (!context.course || !context.career) {
+        new Notice('Academic CMS: missing course or career metadata (_course.md / _career.md)');
+        return;
+      }
+
+      const numberService = new AssignmentNumberService(this.vaultAdapter);
+
+      const today = new Date();
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      const addDays = (d: Date, days: number) => new Date(d.getTime() + days * 86400000);
+
+      const prefill: AssignmentFormPrefill = {
+        unit: await numberService.getNextUnit(context),
+        date: iso(today),
+        due_date: iso(addDays(today, 7)),
+      };
+
+      const modal = new ObsidianModalPort(this.app);
+      const data = await modal.openAssignmentForm(context, prefill);
+
+      if (!data) {
+        new Notice('Creación cancelada');
+        return;
+      }
+
+      data.assignment_number = await numberService.getNextAssignmentNumber(
+        data.type,
+        context
+      );
+
+      const createService = new CreateAssignmentService(
+        this.vaultAdapter,
+        this.settingsAdapter,
+        this.fsAdapter
+      );
+
       const result = await createService.execute(data, {
         coursePath: context.coursePath,
         assignDir: context.assignDir,
@@ -142,10 +179,11 @@ export default class AcademicCMSPlugin extends Plugin {
         career: context.career,
         date: data.date || prefill.date || '',
       });
+
       new Notice(`Created: ${result.title}`);
       const created = this.app.vault.getAbstractFileByPath(result.path);
-      if (created instanceof TFile) {
-        await this.app.workspace.getLeaf().openFile(created);
+      if (created instanceof TFile || created instanceof TFolder) {
+        await this.app.workspace.getLeaf().openFile(this.app.vault.getAbstractFileByPath(result.path) as TFile);
       }
     } catch (e) {
       console.error('Academic CMS: failed to create assignment', e);

@@ -22,6 +22,7 @@ export interface VaultPort {
   moveFile(file: VaultFile, newPath: string): Promise<void>;
   getMatchedPath(pattern: string): string | null;
   getActiveFilePath(): string | null;
+  getVaultBasePath(): string | null;
 }
 
 export interface FrontmatterData {

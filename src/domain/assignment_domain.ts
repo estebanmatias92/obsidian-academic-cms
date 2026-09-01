@@ -4,10 +4,13 @@ import {
   aliasMap,
   typeDisplayNames,
   scaffoldTemplates,
-  codeTypes,
-  resolveType,
+  codeTypes as _codeTypes,
+  resolveType as _resolveType,
   getDisplayName,
 } from './assignment_types';
+
+export const codeTypes = _codeTypes;
+export const resolveType = _resolveType;
 
 function pad2(value: string | number | undefined, fallback = '01'): string {
   return String(value ?? fallback).padStart(2, '0');
@@ -86,6 +89,15 @@ export function normalizeNumber(n: string | number | undefined): string {
   return pad2(n, '01');
 }
 
+export function buildExternalCodePath(params: {
+  externalBase: string;
+  subject: string;
+  folderName: string;
+}): string {
+  const subjectSlug = slugify(params.subject);
+  return `${params.externalBase}/${subjectSlug}/${params.folderName}`;
+}
+
 export const assignmentDomain = {
   buildTitle,
   buildFilename,
@@ -98,6 +110,8 @@ export const assignmentDomain = {
   resolveType,
   getDisplayName,
   slugify,
+  buildExternalCodePath,
+  codeTypes,
 };
 
 export default assignmentDomain;
