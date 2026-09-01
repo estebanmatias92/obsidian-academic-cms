@@ -1,0 +1,8 @@
+US,Title,Status,Domain,Ports,Adapters,Tests,Docs
+US-001,Create Assignment,Done,src/domain/assignment_domain.ts;src/domain/assignment_types.ts,VaultPort;ModalPort;SettingsPort;FileSystemPort,obsidian/vault_adapter.ts;obsidian/modal_adapter.ts;obsidian/settings_adapter.ts;obsidian/file_system_adapter.ts,tests/assignment_domain.test.js;tests/create_assignment_service.test.ts;tests/assignment_number_service.test.ts,docs/02-requirements/backlog/US-001-create-assignment.md
+US-002,File-menu New Assignment,Done,-,VaultPort,plugin/main.ts,manual 2026-09-01,docs/02-requirements/backlog/US-002-file-menu-context.md
+US-003,External code symlink,Done,src/domain/assignment_domain.ts:buildExternalCodePath,SettingsPort;FileSystemPort;VaultPort,obsidian/file_system_adapter.ts;obsidian/settings_adapter.ts,tests/create_assignment_service.test.ts,docs/02-requirements/backlog/US-003-external-code-symlink.md
+US-004,Settings GUI,Done,-,SettingsPort,plugin/settings.ts;obsidian/settings_adapter.ts,manual 2026-09-01,docs/02-requirements/backlog/US-004-settings-gui.md
+US-010,Topics,Deferred,src/domain/topic_domain.ts (future),VaultPort,plugin/main.ts (future),-,docs/02-requirements/backlog/US-010-topics.md
+US-011,Classes,Deferred,src/domain/class_domain.ts (future),VaultPort;ClockPort,plugin/main.ts (future),-,docs/02-requirements/backlog/US-011-classes.md
+US-012,Career bootstrap,Deferred,-,VaultPort,plugin/main.ts (future),-,docs/02-requirements/backlog/US-012-career-bootstrap.md

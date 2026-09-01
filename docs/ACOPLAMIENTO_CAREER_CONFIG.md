@@ -1,3 +1,5 @@
+> **Superseded — English canonical now `docs/path-coupling.md` (2026-09-01). This Spanish original is kept for history.**
+
 # Acoplamiento de `00-meta/academic-cms/` a la estructura del vault
 
 Estado al: 2026-07-25

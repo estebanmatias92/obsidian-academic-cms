@@ -1,10 +1,10 @@
 # ADR 001 — Incremental Migration to Obsidian Plugin via Strangler Fig
 
-* Status: Accepted (Phase 1-2 done, Phase 3 regrouped — 3c file-menu + external symlink done 2026-09-01)
-* Date: 2026-08-31 (updated 2026-09-01 — external code base path + File Navigation context menu)
+* Status: Accepted — Phase 1-2 done, Phase 3a/b/c done, `0.2.0` assignment-only MVP in public testing (BRAT + GitHub Release) — 2026-09-01
+* Date: 2026-08-31 (updated 2026-09-01 — external code base path + File Navigation context menu; 2026-09-01 0.2.0 public testing)
 * Deciders: academic-cms owner
 * Scope: `00-meta/academic-cms/` → `obsidian-academic-cms` Plugin (`github.com/estebanmatias92/obsidian-academic-cms` `public`) at `.obsidian/plugins/obsidian-academic-cms`
-* Relates to: `docs/architecture.md`, `docs/ACOPLAMIENTO_CAREER_CONFIG.md`
+* Relates to: `docs/architecture.md`, `docs/path-coupling.md` (was `ACOPLAMIENTO_CAREER_CONFIG.md`), `docs/01-discovery/PRD.md`
 
 ## Context
 
@@ -74,8 +74,9 @@ A pattern is introduced only if it **reduces coupling to `tp/vault/dom`** or **c
 ## History
 
 * Phase 1-2 done 2026-08-31: `assignment_types.js` + `assignment_domain.js` + `tests` `27 pass`.
-* Phase 3c done 2026-09-01: external `code` symlink `externalBase/<subject>/<folder> → vault code` via `FileSystemPort` + File Navigation `file-menu` `New Assignment` on `30-assignments`/`40-exams` (`main.ts:37` `checkCallback`); 46 tests (assignment_domain, create_assignment_service, assignment_number_service); `externalCodeBasePath` absolute setting, desktop-only with vault fallback.
+* Phase 3c done 2026-09-01: external `code` symlink `externalBase/<subject>/<folder> → vault code` via `FileSystemPort` + File Navigation `file-menu` `New Assignment` on `30-assignments`/`40-exams` (`main.ts:37` `checkCallback`); 49 tests (assignment_domain, create_assignment_service, assignment_number_service, vault_adapter); `externalCodeBasePath` absolute setting, desktop-only with vault fallback.
+* `0.2.0` public testing done 2026-09-01: BRAT `main.js` at root (`esbuild.config.mjs:23`), GitHub Release zip, CI `.github/workflows/ci.yml` + `release.yml`, docs English unified (`README`, `docs/USER_GUIDE.md`, `CHANGELOG.md`), backlog frozen assignment-only (`docs/02-requirements/backlog/US-001..004` done, `US-010..012` deferred per `docs/01-discovery/PRD.md:Scope`).
 
 ## Next Step
 
-Phase 3 done. Next: `topics/` / `classes/` modules follow same ports pattern. Remove `00-meta/academic-cms` when not functional on `main` green. Keep `Templater` as fallback until `1.0`.
+`0.2.0` assignment-only MVP in public testing. Next: collect tester feedback, keep `00-meta/academic-cms` Templater fallback until `1.0`; `topics`/`classes`/`career` follow same ports pattern only after validation (`docs/02-requirements/backlog/US-010.md`). Remove `00-meta/academic-cms` when not functional on `main` green.
