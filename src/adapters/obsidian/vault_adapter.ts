@@ -1,5 +1,5 @@
-import { App, TFile, TFolder, TAbstractFile } from 'obsidian';
-import { VaultPort, VaultFile, VaultFolder, FrontmatterData } from '../../ports/vault_port';
+import { App, TFile, TFolder } from 'obsidian';
+import { VaultPort, VaultFile, VaultFolder } from '../../ports/vault_port';
 
 function toVaultFile(file: TFile): VaultFile {
   return {
@@ -7,19 +7,15 @@ function toVaultFile(file: TFile): VaultFile {
     name: file.name,
     basename: file.basename,
     extension: file.extension,
-    parent: file.parent ? toVaultParent(file.parent) : null,
+    parent: null,
   };
-}
-
-function toVaultParent(file: TAbstractFile): VaultFolder | null {
-  return file instanceof TFolder ? toVaultFolder(file) : null;
 }
 
 function toVaultFolder(folder: TFolder): VaultFolder {
   return {
     path: folder.path,
     name: folder.name,
-    parent: folder.parent ? toVaultParent(folder.parent) : null,
+    parent: null,
     children: folder.children.map((child) =>
       child instanceof TFile ? toVaultFile(child) : toVaultFolder(child as TFolder)
     ),

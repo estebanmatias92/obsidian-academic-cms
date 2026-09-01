@@ -262,17 +262,14 @@ function toVaultFile(file) {
     name: file.name,
     basename: file.basename,
     extension: file.extension,
-    parent: file.parent ? toVaultParent(file.parent) : null
+    parent: null
   };
-}
-function toVaultParent(file) {
-  return file instanceof import_obsidian3.TFolder ? toVaultFolder(file) : null;
 }
 function toVaultFolder(folder) {
   return {
     path: folder.path,
     name: folder.name,
-    parent: folder.parent ? toVaultParent(folder.parent) : null,
+    parent: null,
     children: folder.children.map(
       (child) => child instanceof import_obsidian3.TFile ? toVaultFile(child) : toVaultFolder(child)
     )

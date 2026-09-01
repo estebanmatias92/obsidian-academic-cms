@@ -1,7 +1,7 @@
 # ADR 001 — Incremental Migration to Obsidian Plugin via Strangler Fig
 
-* Status: Accepted (Phase 1-2 done, Phase 3 regrouped)
-* Date: 2026-08-31 (updated 2026-08-31 — repo `obsidian-academic-cms`, vault-only paths)
+* Status: Accepted (Phase 1-2 done, Phase 3 regrouped — 3c file-menu + external symlink done 2026-09-01)
+* Date: 2026-08-31 (updated 2026-09-01 — external code base path + File Navigation context menu)
 * Deciders: academic-cms owner
 * Scope: `00-meta/academic-cms/` → `obsidian-academic-cms` Plugin (`github.com/estebanmatias92/obsidian-academic-cms` `public`) at `.obsidian/plugins/obsidian-academic-cms`
 * Relates to: `docs/architecture.md`, `docs/ACOPLAMIENTO_CAREER_CONFIG.md`
@@ -46,18 +46,18 @@ A pattern is introduced only if it **reduces coupling to `tp/vault/dom`** or **c
 **Phase 3a — Repo extraction (this week, unblocks Templater scan)**
 
 * `github.com/estebanmatias92/obsidian-academic-cms` `public` (`https://github.com/estebanmatias92/obsidian-academic-cms.git`) — created 2026-08-31 from `00-meta/academic-cms` via `filter-repo`/`rsync`, `self-contained` `package.json:1` (`obsidian-academic-cms` `0.1.0`)/`vitest.config.js:1`/`node_modules`/`tests` inside repo, own `.gitignore` (`node_modules/`, `dist/`, `coverage/`). Vault `conocimiento/.gitignore:40` already `node_modules/` but `!00-meta/` tracked `00-meta/academic-cms`; after extraction add `00-meta/academic-cms/` ignore (or `git submodule` vs separate clone `~/Projects/.../obsidian-academic-cms` + build deploy) — `00-meta/academic-cms` removed when not functional (your `remove academic-cms from 00-meta when is no longer functional`).
-* Drop hardcode `assignment.md:140` `fs` symlink `~/Projects/.../isft151-analisis-sistemas` + `os.homedir` — vault-only `Vault.createFolder` for `code/` (real vault folder), no `fs`/`adapter.getFullPath`.
+* Drop hardcode `assignment.md:140` `fs` symlink — vault folder `code/` with optional external symlink via `FileSystemPort` (user-provided absolute `externalCodeBasePath`, fallback vault folder, desktop only, no `~/` hardcode).
 
-**Phase 3b — Decouple I/O: Ports (Obsidian-only, agnostic, no `fs` symlink)**
+**Phase 3b — Decouple I/O: Ports**
 
-* Introduce `VaultPort` (`createFolder`, `getAbstractFileByPath`, `read`, `move`, `getMatchedPath`), `ModalPort` (`openAssignmentForm` → `obsidian.Modal` not `document.createElement` `modal:245-495`), `SettingsPort` (`getCodePath(): string|undefined` from `data.json` GUI user-configured, fallback vault-relative `coursePath/assignDir/folderName/code` via `VaultPort`, never hardcode `~/Projects/...`), `ClockPort` (`moment` vs `tp.date.now`). No `FileSystemPort` `symlink` — agnostic `Vault` API only, `isDesktopOnly: false`.
+* Introduce `VaultPort` (`createFolder`, `getAbstractFileByPath`, `read`, `move`, `getVaultBasePath`), `ModalPort` (`openAssignmentForm` → `obsidian.Modal` not `document.createElement` `modal:245-495`), `SettingsPort` (`getExternalCodeBasePath()/getCodeFolderPath()` from `data.json` GUI, fallback vault `coursePath/assignDir/folderName/code`), `FileSystemPort` (`createDir/symlink/isDesktop` via Node `fs` on desktop, vault fallback on mobile, no `~/` hardcode), `ClockPort` (`moment` vs `tp.date.now`). Desktop-only symlink, `isDesktopOnly:false` with fallback.
 * Refactor `scanLastOfType`/`scanLastOverall` (`modal:184-243` regex `^\d{4}-\d{2}-\d{2}-(.+?)-`) + scaffold `assignment.md:136-155` to `CreateAssignmentService.execute(formData, VaultPort, SettingsPort)` injected, not `tp.app.vault`/`fs` directly.
-* Validation: fake in-memory `Map<string,TFile>` vault tests, no `tp`/`document`/`fs`.
+* Validation: fake in-memory `Map<string,TFile>` vault + `FakeFileSystemPort` tests (46 pass), no `tp`/`document` hard path.
 
-**Phase 3c — Plugin Skeleton at `.obsidian/plugins/obsidian-academic-cms` (isolation complete, drop Templater)**
+**Phase 3c — Plugin Skeleton at `.obsidian/plugins/obsidian-academic-cms` (isolation complete, drop Templater) — done 2026-09-01**
 
-* Init `obsidian-academic-cms/src/` as `TypeScript` Plugin (`manifest.json` `id: obsidian-academic-cms`, `version: 0.1.0`, `minAppVersion: 1.5.0`), `src/plugin/main.ts` (`onload: addCommand Create Assignment + vault.on('create')` hook replacing `templater-obsidian/data.json:16` `folder_templates: 04-projects/prj-systems-analyst`), `settings.ts` (`SettingsTab` for optional code path), `esbuild` → `dist/main.js` → deploy `cp` to `conocimiento/.obsidian/plugins/obsidian-academic-cms/` (vault ignores `main.js` per `conocimiento/.gitignore:17` intentionally, source in `obsidian-academic-cms` repo). Remove `00-meta/academic-cms` when thin `assignment.md` wrapper (`tp.user.*` delegate to `app.plugins.plugins['obsidian-academic-cms']`) not functional on `main` green. Keep `Templater` dependency (`almost just new note hook`) dropped — hook via `Obsidian API` directly.
-* Validation: Plugin dev vault creates identical `30-assignments/<date>-practico-<topic>/_assets/deliverable/code` via `VaultPort` (vault folder, agnostic, no `fs`); rollback keep `Templater` until `1.0`.
+* Init `obsidian-academic-cms/src/` as `TypeScript` Plugin (`manifest.json` `id: obsidian-academic-cms`, `version: 0.2.0`, `minAppVersion: 1.5.0`), `src/plugin/main.ts` (`onload: checkCallback Create Assignment + file-menu New Assignment on File Navigation `30-assignments`/`40-exams` + Vault.on('create') removal` replacing `templater-obsidian/data.json:16` `folder_templates`), `settings.ts` (`SettingsTab` `externalCodeBasePath` absolute + `codeFolderPath` vault-relative), `file_system_adapter.ts` external symlink `externalBase/<subject>/<folder> → vault code`, `esbuild` → `main.js` → deploy `cp` to `conocimiento/.obsidian/plugins/obsidian-academic-cms/` (vault ignores `main.js` per `.gitignore`).
+* Validation: Plugin creates `30-assignments/<date>-practico-<topic>/_assets/deliverable` + external `isft151/.../<subject>/<folder>` symlinked as `code` (desktop) or vault `code` fallback; rollback keep `Templater` until `1.0`.
 
 ## Alternatives Considered
 
@@ -73,9 +73,9 @@ A pattern is introduced only if it **reduces coupling to `tp/vault/dom`** or **c
 
 ## History
 
-* Phase 1-2 done 2026-08-31: `assignment_types.js` + `assignment_domain.js` + `tests` `27 pass` (self-contained `package.json` inside module, guard vs `user_scripts_folder: 00-meta` scan). Repo `https://github.com/estebanmatias92/obsidian-academic-cms` `public` created and pushed.
-* Hardcode `fs` symlink `assignment.md:141` `~/Projects/.../isft151-analisis-sistemas` dropped for vault-only agnostic paths (user-configurable via `SettingsPort` GUI/`data.json`, fallback `Vault` folder structure).
+* Phase 1-2 done 2026-08-31: `assignment_types.js` + `assignment_domain.js` + `tests` `27 pass`.
+* Phase 3c done 2026-09-01: external `code` symlink `externalBase/<subject>/<folder> → vault code` via `FileSystemPort` + File Navigation `file-menu` `New Assignment` on `30-assignments`/`40-exams` (`main.ts:37` `checkCallback`); 46 tests (assignment_domain, create_assignment_service, assignment_number_service); `externalCodeBasePath` absolute setting, desktop-only with vault fallback.
 
 ## Next Step
 
-Phase 3a repo deployed, proceed `Phase 3b` Ports (vault-only) → `Phase 3c` Plugin at `.obsidian/plugins/obsidian-academic-cms`, remove `00-meta/academic-cms` when not functional on `main` green.
+Phase 3 done. Next: `topics/` / `classes/` modules follow same ports pattern. Remove `00-meta/academic-cms` when not functional on `main` green. Keep `Templater` as fallback until `1.0`.
