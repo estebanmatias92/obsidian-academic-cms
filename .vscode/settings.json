@@ -1,0 +1,7 @@
+{
+  // Pin VS Code's TS server to the workspace's pinned typescript@5.9.3
+  // so editor diagnostics match `npm run build` (tsc). Teammates using
+  // nightly/tsgo can still override via "TypeScript: Select TypeScript Version".
+  "typescript.tsdk": "./node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}
