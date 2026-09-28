@@ -1,6 +1,6 @@
 # obsidian-academic-cms
 
-Obsidian Academic CMS — scaffold assignments inside your vault with correct frontmatter, folders, and optional external code symlink. Assignment-only MVP `0.2.0` in public testing.
+Obsidian Academic CMS — scaffold assignments inside your vault with correct frontmatter, folders, and optional external code symlink. Assignment-only MVP in public testing (see `CHANGELOG.md` for current version).
 
 > Strangler Fig from Templater `00-meta/academic-cms` → Hexagonal plugin (`src/domain` pure → `src/ports` → `src/adapters/obsidian` → `src/plugin`). See `docs/architecture.md` and `docs/adr/001-strangler-obsidian-plugin.md`.
 
@@ -17,7 +17,7 @@ Requirement: BRAT needs `main.js` + `manifest.json` at repo root — satisfied (
 
 ### Option B — Manual (GitHub Release)
 
-1. Download `obsidian-academic-cms-0.2.0.zip` (or `main.js`+`manifest.json`+`versions.json`) from [Releases](https://github.com/estebanmatias92/obsidian-academic-cms/releases).
+1. Download `obsidian-academic-cms-<version>.zip` (or `main.js`+`manifest.json`+`versions.json`) from [Releases](https://github.com/estebanmatias92/obsidian-academic-cms/releases).
 2. Unzip into `<vault>/.obsidian/plugins/obsidian-academic-cms/` (create folder if needed).
 3. Enable `Academic CMS` in `Settings → Community plugins` and restart.
 
@@ -46,6 +46,8 @@ If no subject is detected you'll see `No se detectó una materia — run this fr
 npm install
 npm test          # vitest 49 tests (assignment_domain, create_assignment_service, assignment_number_service, vault_adapter)
 npm run build     # tsc + esbuild → main.js (root, for BRAT)
+npm run check-versions  # version-sync guard
+npm run release -- <version>  # bump + changelog + test + build + commit + tag (see CONTRIBUTING.md:Releases)
 ```
 
 - Domain: `src/domain/assignment_types.ts` (10 canonical `practico` + 2 aliases `practica`/`trabajo-practico` → `practico`) + `src/domain/assignment_domain.ts` (`buildTitle`/`buildFilename`/`buildFolderName`/`buildExternalCodePath`).

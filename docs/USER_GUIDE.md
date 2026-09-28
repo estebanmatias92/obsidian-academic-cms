@@ -1,4 +1,4 @@
-# User Guide — obsidian-academic-cms `0.2.0` (assignment-only MVP)
+# User Guide — obsidian-academic-cms (assignment-only MVP, see `CHANGELOG.md` for current version)
 
 ## Prerequisites
 
@@ -39,4 +39,4 @@
 
 ## Uninstall / Disable
 
-Disable in `Settings → Community plugins`. Templater fallback for assignments stays available until `1.0` if plugin is disabled.
+Disable in `Settings → Community plugins`. There is no Templater fallback for assignments — they are plugin-only (legacy `assignments/assignment.md` removed). `topics`/`classes`/`career` scaffolding is still Templater-based.

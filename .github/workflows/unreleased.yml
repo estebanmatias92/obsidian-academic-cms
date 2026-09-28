@@ -1,0 +1,47 @@
+name: Unreleased changes reminder
+
+# Warn-only guard (1b): if main has ≥1 commit since the latest tag touching
+# release-relevant paths, remind that BRAT only moves on a tagged release.
+# Never fails — batching unreleased commits on main is legitimate.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required: default shallow checkout has no tags
+      - name: Check for unreleased changes
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            echo "No tags yet — nothing to compare."
+            exit 0
+          fi
+          COUNT=$(git rev-list "$LAST_TAG"..HEAD --count)
+          if [ "$COUNT" -lt 1 ]; then
+            echo "main is at tag $LAST_TAG — nothing unreleased."
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "$LAST_TAG"..HEAD)
+          RELEVANT=$(echo "$CHANGED" | grep -E '^(src/|manifest\.json|package\.json|versions\.json|esbuild\.config\.mjs)' || true)
+          if [ -z "$RELEVANT" ]; then
+            echo "$COUNT commit(s) since $LAST_TAG but no release-relevant paths changed — silent."
+            exit 0
+          fi
+          MSG="main is $COUNT commit(s) ahead of $LAST_TAG with unreleased plugin changes. BRAT only picks up tagged releases — run npm run release -- <version> when ready."
+          echo "::warning::$MSG"
+          {
+            echo "## Unreleased changes reminder"
+            echo ""
+            echo "$MSG"
+            echo ""
+            echo "Release-relevant files changed since $LAST_TAG:"
+            echo '```'
+            echo "$RELEVANT"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -6,6 +6,11 @@ const coursePath = cfg.COURSE_PATH_PATTERN;
 
 // Unified configuration - combines paths and templates
 // All templates referenced by filename only — tp.file.find_tfile() searches the entire vault
+// NOTE: assignments/exams are owned by the Academic CMS plugin
+// (right-click → New Assignment, or Ctrl+P → Create Assignment).
+// They have no Templater route on purpose: a blank note created inside
+// 30-assignments/ or 40-exams/ intentionally matches nothing and fails
+// closed with "No matching template found".
 const PATH_CONFIG = {
     lecture: {
       pattern: `${coursePath}/*lectures/`,
@@ -14,14 +19,6 @@ const PATH_CONFIG = {
     topic: {
       pattern: `${coursePath}/*topics/`,
       template: `topic.md`
-    },
-    exam: {
-      pattern: `${coursePath}/*exams/`,
-      template: `assignment.md`
-    },
-    assignment: {
-      pattern: `${coursePath}/*assignments/`,
-      template: `assignment.md`
     },
     course: {
       pattern: coursePath,

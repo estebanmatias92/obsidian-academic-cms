@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Release tooling (`CONTRIBUTING.md:Releases` is canonical): `npm run release -- <version>` bumps `manifest.json`/`package.json`/`versions.json`, prepends the changelog entry, runs test+build, commits and tags. `npm run check-versions` (also first CI step) fails on version drift; `unreleased.yml` warns when `main` moves ≥1 commit ahead of the latest tag with plugin-relevant changes. Pushing to `main` alone never updates BRAT — only a pushed tag does.
+- Removed legacy Templater `assignments/assignment.md` (the plugin never read it, BRAT never shipped it) and its `assignment`/`exam` routes in `career/entrypoint.md` — a blank note created in `30-assignments/`/`40-exams/` now fails closed with "No matching template found". Assignment template source of truth: `buildFrontmatter()`/`buildBody()` in `src/use_cases/create_assignment_service.ts`, pure helpers in `src/domain/assignment_domain.ts`.
+
 ## 0.2.1 — 2026-09-28 — Frontmatter `block-headings` parity (Templater + plugin)
 
 ### Fixed

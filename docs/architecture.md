@@ -1,24 +1,24 @@
 # Architecture — `obsidian-academic-cms`
 
-Status: Accepted — Phase 1, 2, 3a, 3b, 3c done, `0.2.0` assignment-only MVP in public testing (BRAT + GitHub Release) — 2026-09-01  
+Status: Accepted — Phase 1, 2, 3a, 3b, 3c done, assignment-only MVP in public testing (BRAT + GitHub Release) — see `CHANGELOG.md` for current version
 Owner: academic-cms module  
 Scope: `obsidian-academic-cms` (`github.com/estebanmatias92/obsidian-academic-cms` `public`) at `.obsidian/plugins/obsidian-academic-cms` ← `00-meta/academic-cms/` Strangler
 
 ## 1. Purpose
 
-`academic-cms` manages academic content scaffolding inside the vault. It started as **Templater user scripts** (`templater-obsidian/data.json:14` `user_scripts_folder: 00-meta`) and migrated to an **Obsidian Plugin** via Strangler Fig. `0.2.0` is assignment-only MVP in public testing; `topics`/`classes`/`career` remain Templater until post-MVP (see `docs/01-discovery/PRD.md`, `docs/02-requirements/backlog/US-010.md`).
+`academic-cms` manages academic content scaffolding inside the vault. It started as **Templater user scripts** (`templater-obsidian/data.json:14` `user_scripts_folder: 00-meta`) and migrated to an **Obsidian Plugin** via Strangler Fig. Assignments are plugin-only (legacy `assignments/assignment.md` removed — the plugin never read it); `topics`/`classes`/`career` remain Templater until post-MVP (see `docs/01-discovery/PRD.md`, `docs/02-requirements/backlog/US-010.md`).
 
 This document is the entry point. Decisions and migration steps live in `adr/`.
 
 ## 2. Current Architecture
 
-**Runtime:** Obsidian Plugin (`0.2.0` assignment-only, `topics`/`classes`/`career` still Templater — deferred post-MVP). Legacy: every `*.js` under `00-meta` was exposed as `tp.user.<basename>` (`career_config.js` → `tp.user.career_config()`, `shared/slugify.js` → `tp.user.slugify`, `assignments/assignment_form_modal.js` → `tp.user.assignment_form_modal`) — now superseded by `src/` Hexagonal.
+**Runtime:** Obsidian Plugin (assignment-only, `topics`/`classes`/`career` still Templater — deferred post-MVP). Legacy: every `*.js` under `00-meta` was exposed as `tp.user.<basename>` (`career_config.js` → `tp.user.career_config()`, `shared/slugify.js` → `tp.user.slugify`, `assignments/assignment_form_modal.js` → `tp.user.assignment_form_modal`) — now superseded by `src/` Hexagonal.
 
 **Modules:**
 
 | Module | Status | Entry / Role |
 |---|---|---|
-| `assignments/` | **Plugin — done** | `src/use_cases/create_assignment_service.ts:41` scaffold (`_assets`, `deliverable`, `code/` vault folder *or* symlink `code → external <subject>/<folder>` via `FileSystemPort`), title/filename via `src/domain/assignment_domain.ts` |
+| `assignments/` | **Plugin — done** | `src/use_cases/create_assignment_service.ts:41` scaffold (`_assets`, `deliverable`, `code/` vault folder *or* symlink `code → external <subject>/<folder>` via `FileSystemPort`), title/filename via `src/domain/assignment_domain.ts`. Frontmatter/body source of truth: `buildFrontmatter()`/`buildBody()` in the service — legacy Templater `assignment.md` removed |
 | `topics/` | Deferred | `topic.md` Templater — see `docs/02-requirements/backlog/US-010.md` |
 | `classes/` | Deferred | `clase.md`, `lecture.md` Templater — see `US-011` |
 | `career/` | Deferred | `entrypoint.md`, `_course-metadata.md`, `_career-meta.md` — see `US-012` |
@@ -81,14 +81,14 @@ obsidian-academic-cms/           # own repo github.com/estebanmatias92/obsidian-
 
 * Canonical catalog `src/domain/assignment_types.ts` co-located, `practico` canonical, aliases read-only — done.
 * Repo `obsidian-academic-cms` public at `.obsidian/plugins/obsidian-academic-cms`, self-contained installs, BRAT `main.js` at root (`esbuild.config.mjs:23`), `fs` symlink via `FileSystemPort` + `externalCodeBasePath` absolute desktop symlink with vault fallback — done 2026-09-01.
-* Templater dropped for assignments (`New Assignment` via `file-menu` `30-assignments`/`40-exams` + `checkCallback` `Create Assignment`); `Vault.on('create')` removed — done 2026-09-01. `topics`/`classes`/`career` remain Templater until post-MVP.
-* Module format: `CommonJS` shim for Templater compat during Strangler → `ESM` `src/` for Plugin; `0.2.0` assignment-only MVP ships via BRAT + GitHub Release zip.
+* Templater dropped for assignments (`New Assignment` via `file-menu` `30-assignments`/`40-exams` + `checkCallback` `Create Assignment`); `Vault.on('create')` removed — done 2026-09-01; legacy `assignments/assignment.md` deleted and its `career/entrypoint.md` routes removed (a blank note in `30-assignments/`/`40-exams/` now fails closed with "No matching template found"). `topics`/`classes`/`career` remain Templater until post-MVP.
+* Module format: `CommonJS` shim for Templater compat during Strangler → `ESM` `src/` for Plugin; assignment-only MVP ships via BRAT + GitHub Release zip.
 
 ## 7b. Public Testing Scope (0.2.x)
 
 * MVP: `US-001..004` done (`docs/02-requirements/backlog/`), deferred `US-010..012`. See `docs/01-discovery/PRD.md:Scope`, `CHANGELOG.md`, `docs/USER_GUIDE.md`.
-* Install: BRAT + manual zip, `versions.json:2` mapping `0.2.0 → 1.5.0`.
-* CI: `.github/workflows/ci.yml` + `release.yml` on tag.
+* Install: BRAT + manual zip, `versions.json` maps each release → `minAppVersion` (see `CONTRIBUTING.md:Releases`).
+* CI: `.github/workflows/ci.yml` (incl. `npm run check-versions` sync guard) + `release.yml` on tag + `unreleased.yml` reminder when `main` moves ahead of the latest tag.
 
 ## 8. References
 

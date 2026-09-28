@@ -8,4 +8,4 @@ TS modules (Phase 3b done):
 - `assignment_domain.ts` — buildTitle, buildFilename, buildFolderName, buildBasePath, getScaffoldDirs, normalizeUnit/Number
 - `slugify.ts`
 
-Legacy JS (`assignments/assignment_types.js` + `assignment_domain.js` + `shared/slugify.js`) stays for Templater until Phase 3c removes the shim.
+Legacy JS (`assignments/assignment_types.js` + `assignment_domain.js` + `shared/slugify.js`) stays: `tests/assignment_domain.test.js` requires the first two, and the `assignment_form_modal.js` Templater shim still uses them. The legacy `assignments/assignment.md` template itself was removed — the plugin generates frontmatter/body from `src/use_cases/create_assignment_service.ts` (`buildFrontmatter`/`buildBody`).
