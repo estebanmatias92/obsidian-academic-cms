@@ -30,9 +30,44 @@ const DRY_RUN = args.includes('--dry-run');
 const notesIdx = args.indexOf('--notes');
 const notes = notesIdx !== -1 ? args[notesIdx + 1] : null;
 
+function printHelp() {
+  console.log(`release — cut a release in one atomic, verified step.
+
+What it does:
+  1. Validates semver, clean tree, tag does not exist yet.
+  2. Syncs version into manifest.json + package.json, adds
+     versions.json["<version>"] = minAppVersion, syncs package-lock.
+  3. Prepends a CHANGELOG.md entry (stub, or --notes body).
+  4. Runs npm test && npm run build && npm run check-versions (aborts on failure).
+  5. Commits \`chore(release): <version>\` + tags \`<version>\` — locally only.
+  6. Prints \`git push origin main <version>\` (or pushes with --push).
+
+IMPORTANT: without --push, nothing leaves your machine. GitHub, the
+release workflow, and BRAT see nothing until main AND the tag are pushed.
+Pushing to main alone never updates BRAT — only a pushed tag fires
+.github/workflows/release.yml → GitHub Release → BRAT.
+
+Flags:
+  --push          push main + tag to origin when done (default: print the command)
+  --notes "text"  changelog body for the version (default: TODO stub you edit)
+  --dry-run       preview the plan without writing, committing, or tagging
+  --help, -h      show this help
+
+Examples:
+  npm run release -- 0.2.2
+  npm run release -- 0.2.2 --notes "Fix code symlink on mobile."
+  npm run release -- 0.2.2 --push
+  npm run release -- 0.2.2 --dry-run`);
+}
+
 function fail(msg) {
   console.error(`release: error: ${msg}`);
   process.exit(1);
+}
+
+if (args.includes('--help') || args.includes('-h')) {
+  printHelp();
+  process.exit(0);
 }
 
 function git(...gitArgs) {
@@ -43,7 +78,7 @@ function run(cmd, cmdArgs) {
   execFileSync(cmd, cmdArgs, { cwd: ROOT, stdio: 'inherit' });
 }
 
-if (!version) fail('usage: npm run release -- <version> [--push] [--notes "text"] [--dry-run]');
+if (!version) fail('usage: npm run release -- <version> [--push] [--notes "text"] [--dry-run]  (see --help)');
 if (!/^\d+\.\d+\.\d+$/.test(version)) fail(`"${version}" is not semver X.Y.Z`);
 
 let existingTag = '';
