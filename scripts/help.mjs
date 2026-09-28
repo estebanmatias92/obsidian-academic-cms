@@ -5,9 +5,9 @@
  */
 console.log(`obsidian-academic-cms — tooling (details: CONTRIBUTING.md:Releases)
 
-  npm test                                        run vitest suite (49 tests)
+  npm test                                        run vitest suite
   npm run build                                   tsc + esbuild → main.js at repo root (what BRAT ships)
-  npm run check-versions                          verify version files agree (manifest/package/versions/CHANGELOG)
+  npm run check-versions                          verify version reference integrity (manifest/package/versions/CHANGELOG)
   npm run release -- <v> [--push] [--notes "..."] [--dry-run]
                                                   bump + changelog + test + build + commit + tag (local only)
   npm run help                                    this list

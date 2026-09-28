@@ -44,7 +44,7 @@ If no subject is detected you'll see `No se detectó una materia — run this fr
 
 ```bash
 npm install
-npm test          # vitest 49 tests (assignment_domain, create_assignment_service, assignment_number_service, vault_adapter)
+npm test          # vitest (assignment_domain, create_assignment_service, assignment_number_service, vault_adapter)
 npm run build     # tsc + esbuild → main.js (root, for BRAT)
 npm run check-versions  # version-sync guard
 npm run release -- <version>  # bump + changelog + test + build + commit + tag (see CONTRIBUTING.md:Releases)

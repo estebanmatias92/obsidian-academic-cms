@@ -4,7 +4,7 @@
 
 ```bash
 npm install
-npm test          # vitest 49 tests
+npm test          # vitest
 npm run build     # tsc + esbuild → main.js (root, for BRAT)
 npm run check-versions  # fail fast if manifest/package/versions/CHANGELOG drift
 ```

@@ -25,7 +25,7 @@ This document is the entry point. Decisions and migration steps live in `adr/`.
 | `shared/` | Done | `src/domain/slugify.ts` agnostic helper |
 | `career_config.js` | Superseded | Wildcard `*systems*` — see `docs/path-coupling.md` (was `ACOPLAMIENTO_CAREER_CONFIG.md`) |
 
-**Key decoupling (Phase 3b/c done):** Pure domain (`src/domain/assignment_types.ts`/`assignment_domain.ts`, `49 pass` `vitest`) isolated from I/O (`VaultPort`/`FileSystemPort` → `ObsidianVaultAdapter`, `ModalPort` → `obsidian.Modal`, external `code` via `SettingsPort` `externalCodeBasePath` ↔ `FileSystemPort.symlink` with vault fallback `src/use_cases/create_assignment_service.ts:99`).
+**Key decoupling (Phase 3b/c done):** Pure domain (`src/domain/assignment_types.ts`/`assignment_domain.ts`, covered by `vitest`) isolated from I/O (`VaultPort`/`FileSystemPort` → `ObsidianVaultAdapter`, `ModalPort` → `obsidian.Modal`, external `code` via `SettingsPort` `externalCodeBasePath` ↔ `FileSystemPort.symlink` with vault fallback `src/use_cases/create_assignment_service.ts:99`).
 
 ## 3. Problems Driving Evolution
 
