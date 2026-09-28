@@ -1,6 +1,6 @@
 {
   "name": "obsidian-academic-cms",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": false,
   "description": "Obsidian Academic CMS — Templater Strangler → Plugin (pure domain, VaultPort, Obsidian API only)",
   "type": "commonjs",

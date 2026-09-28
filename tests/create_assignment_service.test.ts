@@ -106,6 +106,7 @@ describe('CreateAssignmentService', () => {
     expect(content).toContain('title: "Base de Datos - Unidad 01 - Trabajo Práctico 01 - Introduccion RDBMS"');
     expect(content).toContain('assignment_number: "01"');
     expect(content).toContain('unit: "01"');
+    expect(content).toContain('block-headings: true');
     expect(content).toContain('- https://chat.deepseek.com/a');
     expect(content).toContain('## 📌 Descripción de la Actividad');
     expect(content).toContain('[Plataforma de Entrega](https://classroom.google.com/x)');

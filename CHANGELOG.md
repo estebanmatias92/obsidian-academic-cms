@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 — 2026-09-28 — Frontmatter `block-headings` parity (Templater + plugin)
+
+### Fixed
+
+- `assignments/assignment.md`: restored Templater syntax corrupted in `076c6c4` (escaped `\_` vars, `<%\*` tags, flattened YAML indent broke `course.name`/`grading`/`tags` nesting); re-applied intended `block-headings: true` with correct indent.
+- `src/use_cases/create_assignment_service.ts:211` `buildFrontmatter()`: added `block-headings: true` after `toc: false` so plugin-created notes match Templater output. Covered by `tests/create_assignment_service.test.ts` (`block-headings: true` assertion).
+
 ## 0.2.0 — 2026-09-01 — Assignment-only MVP, public testing (BRAT + GitHub Release)
 
 ### Added

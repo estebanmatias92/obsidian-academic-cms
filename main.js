@@ -738,6 +738,7 @@ tags:
 - ${typeSlug}
 - unit-${params.unit}
 toc: false
+block-headings: true
 ---`;
   }
 };
