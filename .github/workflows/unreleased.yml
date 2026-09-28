@@ -1,8 +1,8 @@
 name: Unreleased changes reminder
 
-# Warn-only guard (1b): if main has ≥1 commit since the latest tag touching
-# release-relevant paths, remind that BRAT only moves on a tagged release.
-# Never fails — batching unreleased commits on main is legitimate.
+# Unreleased changes reminder — answers "is there unshipped work?" (is main
+# ahead of the latest tag?). Warn-only: batching unreleased commits on main
+# is legitimate, so this never fails. See CONTRIBUTING.md:Releases.
 on:
   push:
     branches: [main]
