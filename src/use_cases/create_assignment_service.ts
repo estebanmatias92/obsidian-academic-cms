@@ -1,6 +1,6 @@
-import { VaultPort, VaultFolder, VaultFile } from '../ports/vault_port';
-import { SettingsPort } from '../ports/settings_port';
-import { FileSystemPort } from '../ports/file_system_port';
+import { VaultPort, VaultFolder, VaultFile } from "../ports/vault_port";
+import { SettingsPort } from "../ports/settings_port";
+import { FileSystemPort } from "../ports/file_system_port";
 import {
   buildTitle,
   buildFilename,
@@ -11,8 +11,8 @@ import {
   normalizeNumber,
   buildExternalCodePath,
   codeTypes,
-} from '../domain/assignment_domain';
-import { AssignmentFormData } from '../ports/modal_port';
+} from "../domain/assignment_domain";
+import { AssignmentFormData } from "../ports/modal_port";
 
 export interface CreateAssignmentContext {
   coursePath: string;
@@ -35,14 +35,17 @@ export class CreateAssignmentService {
   constructor(
     private vaultPort: VaultPort,
     private settingsPort: SettingsPort,
-    private fsPort: FileSystemPort
+    private fsPort: FileSystemPort,
   ) {}
 
-  async execute(formData: AssignmentFormData, context: CreateAssignmentContext): Promise<CreateAssignmentResult> {
+  async execute(
+    formData: AssignmentFormData,
+    context: CreateAssignmentContext,
+  ): Promise<CreateAssignmentResult> {
     const typeSlug = formData.type;
     const unit = normalizeUnit(formData.unit);
     const assignmentNumber = normalizeNumber(formData.assignment_number);
-    const topic = formData.topic || 'Introduccion';
+    const topic = formData.topic || "Introduccion";
 
     const title = buildTitle({
       courseName: context.course.name,
@@ -63,8 +66,16 @@ export class CreateAssignmentService {
     });
     const filename = `${filenameBase}.md`;
 
-    const folderName = buildFolderName({ date: context.date, type: typeSlug, topic });
-    const basePath = buildBasePath({ coursePath: context.coursePath, assignDir: context.assignDir, folderName });
+    const folderName = buildFolderName({
+      date: context.date,
+      type: typeSlug,
+      topic,
+    });
+    const basePath = buildBasePath({
+      coursePath: context.coursePath,
+      assignDir: context.assignDir,
+      folderName,
+    });
 
     const includeCode = formData.include_code === true;
     const canonicalType = typeSlug;
@@ -75,12 +86,13 @@ export class CreateAssignmentService {
     const externalCodeBase = this.settingsPort.getExternalCodeBasePath();
     const vaultCodePath = this.settingsPort.getCodeFolderPath();
 
-    const subject = context.coursePath.split('/').pop() || '';
+    const subject = context.coursePath.split("/").pop() || "";
 
     const shouldUseVaultCodePath = !!vaultCodePath && !externalCodeBase;
 
     for (const dir of dirs) {
-      if (dir === 'code' && (externalCodeBase || shouldUseVaultCodePath)) continue;
+      if (dir === "code" && (externalCodeBase || shouldUseVaultCodePath))
+        continue;
       await this.vaultPort.createFolder(`${basePath}/${dir}`);
     }
 
@@ -93,15 +105,19 @@ export class CreateAssignmentService {
             folderName,
           });
           await this.fsPort.createDir(externalPath);
-          const vaultBase = this.vaultPort.getVaultBasePath?.() || '';
+          const vaultBase = this.vaultPort.getVaultBasePath?.() || "";
           const codeLinkPath = `${vaultBase}/${basePath}/code`;
           await this.fsPort.symlink(externalPath, codeLinkPath);
         } else {
-          console.warn('External code base set but not on desktop, falling back to vault folder');
+          console.warn(
+            "External code base set but not on desktop, falling back to vault folder",
+          );
           await this.vaultPort.createFolder(`${basePath}/code`);
         }
       } else if (vaultCodePath) {
-        await this.vaultPort.createFolder(`${vaultCodePath}/${folderName}-code`);
+        await this.vaultPort.createFolder(
+          `${vaultCodePath}/${folderName}-code`,
+        );
       }
     }
 
@@ -119,7 +135,7 @@ export class CreateAssignmentService {
       difficulty: formData.difficulty,
       priority: formData.priority,
       submission_type: formData.submission_type,
-      submission_file_format: formData.submission_file_format || '',
+      submission_file_format: formData.submission_file_format || "",
       submission_platform: formData.submission_platform,
       instructions_link: formData.instructions_link,
       submission_link: formData.submission_link,
@@ -131,11 +147,11 @@ export class CreateAssignmentService {
       student: context.career.student,
       submission_link: formData.submission_link,
       instructions_link: formData.instructions_link,
-      submission_file_format: formData.submission_file_format || '',
+      submission_file_format: formData.submission_file_format || "",
     });
 
     const path = `${basePath}/${filename}`;
-    await this.vaultPort.createFile(path, frontmatter + '\n' + body);
+    await this.vaultPort.createFile(path, frontmatter + "\n" + body);
 
     return { title, filename, basePath, frontmatter, body, path };
   }
@@ -148,37 +164,27 @@ export class CreateAssignmentService {
     submission_file_format: string;
   }): string {
     return `# ${params.title}
-<!--
-- **Materia**: \`= this.course.name\`
-- **Unidad**: \`= this.unit\`
-- **Actividad**: \`= this.assignment\`
-- **Tema**: \`= this.topic\`
-- **Profesor**: \`= this.professor\`
-- **Estudiante**: \`= this.student\`
-- **Fecha de entrega**: \`= this.due_date\`
-- **Completado**: \`= this.status_completed\`
-- **Instrucciones**: \`= this.links_instructions\`
-- **Copia Local**: \`= this.links_local_file\`
-- **Enlace de Entrega**: \`= this.links_submission\`
-- **Estudiante**: ${params.student}
--->
-
 ## 📌 Descripción de la Actividad
 
 - [Plataforma de Entrega](${params.submission_link}) | [Instrucciones](${params.instructions_link})
-- Objetivos principales:
-	- Desarrollar consignas teórica-prácticas
 - Formato de entrega requerido: **${params.submission_file_format}**
+
+### Objetivos:
+
+1. Desarrollar consignas teóricas
+2. Desarrollar consignas prácticas
 
 ## 📝 Desarrollo
 
-### Punto 1
+### 1. ...
 
-
+...
 
 ## 🛠️ Desarrollo Práctico
 
+### 2. ...
 
+...
 
 ## 📚 Material de Referencia
 
@@ -209,14 +215,24 @@ export class CreateAssignmentService {
     submission_link: string;
     ai_chat_links: string;
   }): string {
-    const topicSlug = params.topic.normalize('NFKD').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/[\s-]+/g, '-');
-    const typeSlug = params.type.normalize('NFKD').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/[\s-]+/g, '-');
+    const topicSlug = params.topic
+      .normalize("NFKD")
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, "")
+      .trim()
+      .replace(/[\s-]+/g, "-");
+    const typeSlug = params.type
+      .normalize("NFKD")
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, "")
+      .trim()
+      .replace(/[\s-]+/g, "-");
 
     const aiChatLinks = params.ai_chat_links
-      .split('\n')
+      .split("\n")
       .filter((link) => link.trim())
       .map((item) => `  - ${item.trim()}`)
-      .join('\n');
+      .join("\n");
 
     return `---
 title: "${params.title}"
@@ -247,7 +263,7 @@ links_instructions: "${params.instructions_link}"
 links_submission: "${params.submission_link}"
 links_local_copy: ""
 ai_chat_links:
-${aiChatLinks ? '\n' + aiChatLinks : ''}
+${aiChatLinks ? "\n" + aiChatLinks : ""}
 tags:
 - ${topicSlug}
 - second-year
@@ -258,4 +274,3 @@ block-headings: true
 ---`;
   }
 }
-
