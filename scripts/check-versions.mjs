@@ -26,9 +26,9 @@ Verifies every reference agrees on the current version (no writes):
   3. CHANGELOG.md has a \`## <version>\` heading
   4. (warning only) package-lock.json root version matches
 
-This answers consistency only — it is blind to whether you should have
-released by now (see unreleased.yml) and to whether the tag was pushed
-(see scripts/release.mjs --help). Full model: CONTRIBUTING.md:Releases.
+This checks file agreement only — it won't tell you a release is overdue
+(see unreleased.yml) or push anything (see scripts/release.mjs --help).
+Details: CONTRIBUTING.md:Releases.
 
 Usage: npm run check-versions`);
   process.exit(0);

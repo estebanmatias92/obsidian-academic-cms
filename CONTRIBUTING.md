@@ -24,15 +24,7 @@ npm run check-versions  # fail fast if manifest/package/versions/CHANGELOG drift
 
 ## Releases
 
-Workflow is batching: push work to `main` freely, then cut a release deliberately when you want BRAT to move.
-
-Three questions, three tools — each blind to the other two:
-
-1. **Are the files consistent?** → `npm run check-versions` — *do all references agree on the current version?* Blind to whether you should have released by now.
-2. **Is there unshipped work?** → `unreleased.yml` CI reminder — *is `main` ahead of the latest tag?* Warn-only, batching is legal. Blind to file consistency.
-3. **Did it leave my machine?** → `git push origin main X` (or `--push`) — *only a pushed tag fires `release.yml` → BRAT.* Blind to everything before it.
-
-Pushing to `main` alone never updates BRAT.
+Workflow is batching: push work to `main` freely, then cut a release deliberately when you want BRAT to move. Pushing to `main` alone never updates BRAT — only a pushed tag fires `release.yml`.
 
 ```bash
 npm run release -- 0.2.2              # bump + changelog stub + test + build + commit + tag
