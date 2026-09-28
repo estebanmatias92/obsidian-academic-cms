@@ -16,6 +16,24 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = process.env.REPO_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..');
+
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log(`check-versions — are the files consistent?
+
+Verifies every reference agrees on the current version (no writes):
+  1. manifest.json version === package.json version
+  2. versions.json contains that version, mapped to manifest.json minAppVersion
+  3. CHANGELOG.md has a \`## <version>\` heading
+  4. (warning only) package-lock.json root version matches
+
+This answers consistency only — it is blind to whether you should have
+released by now (see unreleased.yml) and to whether the tag was pushed
+(see scripts/release.mjs --help). Full model: CONTRIBUTING.md:Releases.
+
+Usage: npm run check-versions`);
+  process.exit(0);
+}
+
 const errors = [];
 const warnings = [];
 
