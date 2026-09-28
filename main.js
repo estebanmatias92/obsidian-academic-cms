@@ -590,8 +590,16 @@ var CreateAssignmentService = class {
       topic
     });
     const filename = `${filenameBase}.md`;
-    const folderName = buildFolderName({ date: context.date, type: typeSlug, topic });
-    const basePath = buildBasePath({ coursePath: context.coursePath, assignDir: context.assignDir, folderName });
+    const folderName = buildFolderName({
+      date: context.date,
+      type: typeSlug,
+      topic
+    });
+    const basePath = buildBasePath({
+      coursePath: context.coursePath,
+      assignDir: context.assignDir,
+      folderName
+    });
     const includeCode = formData.include_code === true;
     const canonicalType = typeSlug;
     const shouldCreateCode = includeCode || codeTypes2.includes(canonicalType);
@@ -618,11 +626,15 @@ var CreateAssignmentService = class {
           const codeLinkPath = `${vaultBase}/${basePath}/code`;
           await this.fsPort.symlink(externalPath, codeLinkPath);
         } else {
-          console.warn("External code base set but not on desktop, falling back to vault folder");
+          console.warn(
+            "External code base set but not on desktop, falling back to vault folder"
+          );
           await this.vaultPort.createFolder(`${basePath}/code`);
         }
       } else if (vaultCodePath) {
-        await this.vaultPort.createFolder(`${vaultCodePath}/${folderName}-code`);
+        await this.vaultPort.createFolder(
+          `${vaultCodePath}/${folderName}-code`
+        );
       }
     }
     const frontmatter = this.buildFrontmatter({
@@ -658,37 +670,27 @@ var CreateAssignmentService = class {
   }
   buildBody(params) {
     return `# ${params.title}
-<!--
-- **Materia**: \`= this.course.name\`
-- **Unidad**: \`= this.unit\`
-- **Actividad**: \`= this.assignment\`
-- **Tema**: \`= this.topic\`
-- **Profesor**: \`= this.professor\`
-- **Estudiante**: \`= this.student\`
-- **Fecha de entrega**: \`= this.due_date\`
-- **Completado**: \`= this.status_completed\`
-- **Instrucciones**: \`= this.links_instructions\`
-- **Copia Local**: \`= this.links_local_file\`
-- **Enlace de Entrega**: \`= this.links_submission\`
-- **Estudiante**: ${params.student}
--->
-
 ## \u{1F4CC} Descripci\xF3n de la Actividad
 
 - [Plataforma de Entrega](${params.submission_link}) | [Instrucciones](${params.instructions_link})
-- Objetivos principales:
-	- Desarrollar consignas te\xF3rica-pr\xE1cticas
 - Formato de entrega requerido: **${params.submission_file_format}**
+
+### Objetivos:
+
+1. Desarrollar consignas te\xF3ricas
+2. Desarrollar consignas pr\xE1cticas
 
 ## \u{1F4DD} Desarrollo
 
-### Punto 1
+### 1. ...
 
-
+...
 
 ## \u{1F6E0}\uFE0F Desarrollo Pr\xE1ctico
 
+### 2. ...
 
+...
 
 ## \u{1F4DA} Material de Referencia
 

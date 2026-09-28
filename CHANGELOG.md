@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 — 2026-09-28
+
+TODO: release notes.
+
 ## Unreleased
 
 ### Changed
